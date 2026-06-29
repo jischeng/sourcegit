@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -327,15 +328,11 @@ namespace SourceGit.ViewModels
             using var lockWatcher = _repo.LockWatcher();
 
             var log = _repo.CreateLog("Stage");
-            var pathSpecFile = Path.GetTempFileName();
-            await using (var writer = new StreamWriter(pathSpecFile))
-            {
-                foreach (var c in canStaged)
-                    await writer.WriteLineAsync(c.Path);
-            }
+            var pathspec = new StringBuilder();
+            foreach (var c in canStaged)
+                pathspec.Append(c.Path).Append('\n');
 
-            await new Commands.Add(_repo.FullPath, pathSpecFile).Use(log).ExecAsync();
-            File.Delete(pathSpecFile);
+            await new Commands.Add(_repo.FullPath, pathspec.ToString()).Use(log).ExecAsync();
             log.Complete();
 
             _repo.MarkWorkingCopyDirtyManually();
@@ -361,19 +358,15 @@ namespace SourceGit.ViewModels
             }
             else
             {
-                var pathSpecFile = Path.GetTempFileName();
-                await using (var writer = new StreamWriter(pathSpecFile))
+                var pathspec = new StringBuilder();
+                foreach (var c in changes)
                 {
-                    foreach (var c in changes)
-                    {
-                        await writer.WriteLineAsync(c.Path);
-                        if (c.Index == Models.ChangeState.Renamed)
-                            await writer.WriteLineAsync(c.OriginalPath);
-                    }
+                    pathspec.Append(c.Path).Append('\n');
+                    if (c.Index == Models.ChangeState.Renamed)
+                        pathspec.Append(c.OriginalPath).Append('\n');
                 }
 
-                await new Commands.Reset(_repo.FullPath, pathSpecFile).Use(log).ExecAsync();
-                File.Delete(pathSpecFile);
+                await new Commands.Reset(_repo.FullPath, pathspec.ToString()).Use(log).ExecAsync();
             }
             log.Complete();
 
@@ -415,8 +408,8 @@ namespace SourceGit.ViewModels
                 if (change.ConflictReason is Models.ConflictReason.BothDeleted or Models.ConflictReason.DeletedByThem or Models.ConflictReason.AddedByUs)
                 {
                     var fullpath = Path.Combine(_repo.FullPath, change.Path);
-                    if (File.Exists(fullpath))
-                        File.Delete(fullpath);
+                    if (_repo.FileSystem.FileExists(fullpath))
+                        _repo.FileSystem.DeleteFile(fullpath);
 
                     needStage.Add(change.Path);
                 }
@@ -435,10 +428,10 @@ namespace SourceGit.ViewModels
 
             if (needStage.Count > 0)
             {
-                var pathSpecFile = Path.GetTempFileName();
-                await File.WriteAllLinesAsync(pathSpecFile, needStage);
-                await new Commands.Add(_repo.FullPath, pathSpecFile).Use(log).ExecAsync();
-                File.Delete(pathSpecFile);
+                var pathspec = new StringBuilder();
+                foreach (var p in needStage)
+                    pathspec.Append(p).Append('\n');
+                await new Commands.Add(_repo.FullPath, pathspec.ToString()).Use(log).ExecAsync();
             }
 
             log.Complete();
@@ -461,8 +454,8 @@ namespace SourceGit.ViewModels
                 if (change.ConflictReason is Models.ConflictReason.BothDeleted or Models.ConflictReason.DeletedByUs or Models.ConflictReason.AddedByThem)
                 {
                     var fullpath = Path.Combine(_repo.FullPath, change.Path);
-                    if (File.Exists(fullpath))
-                        File.Delete(fullpath);
+                    if (_repo.FileSystem.FileExists(fullpath))
+                        _repo.FileSystem.DeleteFile(fullpath);
 
                     needStage.Add(change.Path);
                 }
@@ -481,10 +474,10 @@ namespace SourceGit.ViewModels
 
             if (needStage.Count > 0)
             {
-                var pathSpecFile = Path.GetTempFileName();
-                await File.WriteAllLinesAsync(pathSpecFile, needStage);
-                await new Commands.Add(_repo.FullPath, pathSpecFile).Use(log).ExecAsync();
-                File.Delete(pathSpecFile);
+                var pathspec = new StringBuilder();
+                foreach (var p in needStage)
+                    pathspec.Append(p).Append('\n');
+                await new Commands.Add(_repo.FullPath, pathspec.ToString()).Use(log).ExecAsync();
             }
 
             log.Complete();
