@@ -65,6 +65,12 @@ namespace SourceGit.Commands
                 return Command.Result.Failed(e.Message);
             }
 
+            if (spec.StdinContent != null)
+            {
+                proc.StandardInput.Write(spec.StdinContent);
+                proc.StandardInput.Close();
+            }
+
             var rs = new Command.Result { IsSuccess = true };
             rs.StdOut = proc.StandardOutput.ReadToEnd();
             rs.StdErr = proc.StandardError.ReadToEnd();
@@ -86,6 +92,12 @@ namespace SourceGit.Commands
             catch (Exception e)
             {
                 return Command.Result.Failed(e.Message);
+            }
+
+            if (spec.StdinContent != null)
+            {
+                await proc.StandardInput.WriteAsync(spec.StdinContent).ConfigureAwait(false);
+                proc.StandardInput.Close();
             }
 
             var rs = new Command.Result { IsSuccess = true };
@@ -167,7 +179,7 @@ namespace SourceGit.Commands
                 start.StandardErrorEncoding = Encoding.UTF8;
             }
 
-            if (spec.RedirectStandardInput)
+            if (spec.RedirectStandardInput || spec.StdinContent != null)
                 start.RedirectStandardInput = true;
 
             // Force using this app as SSH askpass program

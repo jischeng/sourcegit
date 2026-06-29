@@ -43,6 +43,12 @@ namespace SourceGit.Commands
             /// (pathspec, patch data, LFS smudge pointer).
             /// </summary>
             public bool RedirectStandardInput = false;
+
+            /// <summary>
+            /// Optional content to pipe into git's stdin. When set, RedirectStandardInput
+            /// is implied and the runner writes it before reading output.
+            /// </summary>
+            public string StdinContent = null;
         }
 
         public string Context { get; set; } = string.Empty;
@@ -50,6 +56,9 @@ namespace SourceGit.Commands
         public EditorType Editor { get; set; } = EditorType.CoreEditor;
         public string SSHKey { get; set; } = string.Empty;
         public string Args { get; set; } = string.Empty;
+
+        /// <summary>Optional content piped to git's stdin (pathspec/patch/commit-message via -).</summary>
+        public string Stdin { get; set; } = null;
 
         // Only used in `ExecAsync` mode.
         public CancellationToken CancellationToken { get; set; } = CancellationToken.None;
@@ -72,6 +81,7 @@ namespace SourceGit.Commands
             WorkingDirectory = WorkingDirectory,
             Editor = Editor,
             SSHKey = SSHKey,
+            StdinContent = Stdin,
         };
 
         public async Task<bool> ExecAsync()

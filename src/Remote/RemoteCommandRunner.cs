@@ -92,6 +92,7 @@ namespace SourceGit.Remote
                 working_dir = spec.WorkingDirectory,
                 ssh_key = spec.SSHKey,
                 editor = spec.Editor.ToString(),
+                stdin = spec.StdinContent,
             };
 
             var result = _client.Call("exec_git", parameters);
