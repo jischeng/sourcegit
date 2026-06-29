@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -12,12 +13,13 @@ namespace SourceGit.Remote
 {
     /// <summary>
     /// Headless RPC server started by <c>sourcegit --remote-server</c>. Reads JSON-RPC
-    /// requests from stdin (one per line) and writes responses to stdout. It runs on the
-    /// remote host where the repository actually lives, so git is launched as a local
-    /// child process via <see cref="LocalCommandRunner"/> and files are accessed directly.
+    /// requests from stdin and writes responses to stdout, blocking until the SSH channel
+    /// closes. It runs on the remote host where the repository lives, so git is launched as a
+    /// local child process and files are accessed directly.
     /// <para>
-    /// The server owns no GUI and no Avalonia lifetime; it blocks on stdin until the SSH
-    /// channel closes, then exits.
+    /// Also supports <c>watch_start</c>/<c>watch_stop</c>: a <see cref="FileSystemWatcher"/> is
+    /// started on the remote working tree and change events are pushed back to the client as
+    /// <c>watch_event</c> notifications so the client can auto-refresh a remote repository.
     /// </para>
     /// </summary>
     public class RpcServer
@@ -31,12 +33,8 @@ namespace SourceGit.Remote
             }
             catch
             {
-                // Encoding may be unavailable in some environments; the loop still works
-                // for ASCII content.
             }
 
-            // The GUI path locates git via Preferences.PrepareGit(); the headless server
-            // never starts that path, so locate git explicitly before handling exec_git.
             if (string.IsNullOrEmpty(Native.OS.GitExecutable) || !File.Exists(Native.OS.GitExecutable))
                 Native.OS.GitExecutable = Native.OS.FindGitExecutable();
 
@@ -51,9 +49,17 @@ namespace SourceGit.Remote
                 }
                 catch (Exception e)
                 {
-                    // Keep serving even if a single message fails.
                     Native.OS.LogException(e);
                 }
+            }
+
+            lock (_watchers)
+            {
+                foreach (var kv in _watchers)
+                {
+                    try { kv.Value.EnableRaisingEvents = false; kv.Value.Dispose(); } catch { }
+                }
+                _watchers.Clear();
             }
 
             return 0;
@@ -68,7 +74,6 @@ namespace SourceGit.Remote
             }
             catch
             {
-                // Malformed input — nothing to correlate a response with, ignore.
                 return;
             }
 
@@ -86,10 +91,12 @@ namespace SourceGit.Remote
                 resp = new Response { Id = req.Id, Error = new RpcError { Code = -1, Message = e.Message } };
             }
 
-            // Serialize and flush on the loop thread so messages stay whole-line ordered.
             var json = JsonSerializer.Serialize(resp);
-            Console.Out.WriteLine(json);
-            Console.Out.Flush();
+            lock (_sendLock)
+            {
+                Console.Out.WriteLine(json);
+                Console.Out.Flush();
+            }
         }
 
         private async Task<JsonNode> DispatchAsync(Request req)
@@ -132,6 +139,14 @@ namespace SourceGit.Remote
                         return JsonSerializer.SerializeToNode(new { path });
                     }
 
+                case "watch_start":
+                    StartWatch(GetString(p, "path"));
+                    return JsonSerializer.SerializeToNode(new { });
+
+                case "watch_stop":
+                    StopWatch(GetString(p, "path"));
+                    return JsonSerializer.SerializeToNode(new { });
+
                 default:
                     throw new Exception($"unknown method: {req.Method}");
             }
@@ -162,13 +177,8 @@ namespace SourceGit.Remote
                 Headless = true,
             };
 
-            // Launch git locally (the server host *is* the repo host). The runner injects
-            // the same SSH askpass / GIT_SSH_COMMAND / locale env as the GUI client does.
-            // Note: askpass currently needs a GUI; fetch/push over SSH from the server is
-            // addressed in a later phase via an askpass callback over this same RPC channel.
             using var proc = LocalCommandRunner.Instance.Start(spec);
 
-            // Read stdout/stderr concurrently to avoid pipe deadlocks on large output.
             var stdoutTask = proc.Stdout.ReadToEndAsync();
             var stderrTask = proc.Stderr.ReadToEndAsync();
 
@@ -185,6 +195,68 @@ namespace SourceGit.Remote
             return new ExecGitResult { Stdout = stdout, Stderr = stderr, ExitCode = proc.ExitCode };
         }
 
+        private void StartWatch(string path)
+        {
+            lock (_watchers)
+            {
+                if (_watchers.ContainsKey(path))
+                    return;
+
+                FileSystemWatcher fsw;
+                try
+                {
+                    fsw = new FileSystemWatcher(path)
+                    {
+                        IncludeSubdirectories = true,
+                        NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
+                        EnableRaisingEvents = true,
+                    };
+                }
+                catch
+                {
+                    return;
+                }
+
+                fsw.Changed += (_, e) => OnWatchEvent(path, e.Name);
+                fsw.Created += (_, e) => OnWatchEvent(path, e.Name);
+                fsw.Deleted += (_, e) => OnWatchEvent(path, e.Name);
+                fsw.Renamed += (_, e) => OnWatchEvent(path, e.Name);
+
+                _watchers[path] = fsw;
+            }
+        }
+
+        private void StopWatch(string path)
+        {
+            lock (_watchers)
+            {
+                if (_watchers.TryGetValue(path, out var fsw))
+                {
+                    try { fsw.EnableRaisingEvents = false; fsw.Dispose(); } catch { }
+                    _watchers.Remove(path);
+                }
+            }
+        }
+
+        private void OnWatchEvent(string path, string file)
+        {
+            SendNotification("watch_event", new { path, file });
+        }
+
+        private void SendNotification(string method, object parameters)
+        {
+            var notif = JsonSerializer.Serialize(new Notification
+            {
+                Method = method,
+                Params = JsonSerializer.SerializeToNode(parameters),
+            });
+
+            lock (_sendLock)
+            {
+                try { Console.Out.WriteLine(notif); Console.Out.Flush(); } catch { }
+            }
+        }
+
         private static string GetString(JsonNode p, string name)
         {
             return p?[name]?.GetValue<string>() ?? throw new Exception($"missing param: {name}");
@@ -199,5 +271,8 @@ namespace SourceGit.Remote
         {
             return p?[name]?.GetValue<bool>() ?? throw new Exception($"missing param: {name}");
         }
+
+        private readonly object _sendLock = new();
+        private readonly Dictionary<string, FileSystemWatcher> _watchers = new();
     }
 }

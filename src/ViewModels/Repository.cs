@@ -432,6 +432,8 @@ namespace SourceGit.ViewModels
 
         internal IDisposable RemoteConnection { get; set; } = null;
 
+        internal IDisposable RemoteWatcher { get; set; } = null;
+
         /// <summary>
         /// Filesystem accessor for the working tree and .git internals. Local repos use
         /// <see cref="LocalFileSystem"/> (direct File./Directory.); remote repos use a
@@ -525,6 +527,7 @@ namespace SourceGit.ViewModels
             if (IsRemote)
             {
                 Commands.CommandRunnerRegistry.Unregister(FullPath);
+                RemoteWatcher?.Dispose();
                 RemoteConnection?.Dispose();
             }
         }

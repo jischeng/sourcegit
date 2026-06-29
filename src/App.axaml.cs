@@ -357,6 +357,24 @@ namespace SourceGit
             });
             Console.Out.WriteLine($"[selftest] hash-object --stdin stdout={stdinRS.StdOut.Trim()} ok={stdinRS.IsSuccess}");
 
+            // watch (server FSW pushes watch_event notifications back to the client)
+            var gotWatch = new ManualResetEventSlim(false);
+            client.NotificationReceived += (method, pars) =>
+            {
+                if (method == "watch_event")
+                {
+                    Console.Out.WriteLine($"[selftest] watch_event file={pars?["file"]?.GetValue<string>()}");
+                    gotWatch.Set();
+                }
+            };
+            client.Call("watch_start", new { path = workingDir });
+            var watchTestFile = Path.Combine(workingDir, ".watch_selftest");
+            File.WriteAllText(watchTestFile, "trigger");
+            gotWatch.Wait(TimeSpan.FromSeconds(3));
+            File.Delete(watchTestFile);
+            client.Call("watch_stop", new { path = workingDir });
+            Console.Out.WriteLine($"[selftest] watch notification received={gotWatch.IsSet}");
+
             return 0;
         }
 

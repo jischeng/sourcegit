@@ -1,75 +1,139 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SourceGit.Remote
 {
     /// <summary>
-    /// Client side of the JSON-RPC over stdio protocol. Sends <see cref="Request"/>s on the
-    /// connection's output stream and reads <see cref="Response"/>s back, correlating by id.
+    /// Client side of the JSON-RPC over stdio protocol.
     /// <para>
-    /// Calls are serialized (one outstanding request at a time) which matches the server's
-    /// single-threaded dispatch loop. Server-pushed notifications (for remote change watching)
-    /// require a background read loop and are tracked separately.
+    /// A dedicated background read thread consumes the stream, dispatching responses
+    /// (matched by id to outstanding <see cref="CallAsync"/> requests) and forwarding
+    /// server-pushed notifications (no id) to <see cref="NotificationReceived"/>. This lets
+    /// the remote server push events such as working-copy changes back to the client for
+    /// auto-refresh.
+    /// </para>
+    /// <para>
+    /// A dedicated thread (not a thread-pool Task) plus
+    /// <see cref="TaskCreationOptions.RunContinuationsAsynchronously"/> avoid the
+    /// continuation/thread-pool deadlock that an earlier Task.Run-based version hit.
     /// </para>
     /// </summary>
     public class RpcClient : IDisposable
     {
         private readonly StreamReader _reader;
         private readonly StreamWriter _writer;
-        private readonly object _lock = new();
-        private long _nextId = 1;
+        private readonly object _writeLock = new();
+        private readonly ConcurrentDictionary<long, TaskCompletionSource<JsonNode>> _pending = new();
+        private readonly Thread _readThread;
+        private long _nextId = 0;
+        private volatile bool _stopped = false;
 
         public RpcClient(Stream input, Stream output)
         {
             _reader = new StreamReader(input, Encoding.UTF8);
             _writer = new StreamWriter(output, new UTF8Encoding(false)) { AutoFlush = true };
+            _readThread = new Thread(ReadLoop) { IsBackground = true, Name = "RpcClient.ReadLoop" };
+            _readThread.Start();
         }
 
-        /// <summary>
-        /// Send a method call and block until the matching response arrives. Throws on a
-        /// remote error or if the connection is closed.
-        /// </summary>
-        public JsonNode Call(string method, object parameters)
+        /// <summary>Server-pushed notification (method, params).</summary>
+        public event Action<string, JsonNode> NotificationReceived;
+
+        /// <summary>Synchronous request/response. Blocks until the matching response arrives.</summary>
+        public JsonNode Call(string method, object parameters) => CallAsync(method, parameters).GetAwaiter().GetResult();
+
+        public async Task<JsonNode> CallAsync(string method, object parameters)
         {
-            long id;
-            string respLine;
+            var id = Interlocked.Increment(ref _nextId);
+            var tcs = new TaskCompletionSource<JsonNode>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pending[id] = tcs;
 
-            lock (_lock)
+            var req = new Request
             {
-                id = _nextId++;
-                var req = new Request
-                {
-                    Id = id,
-                    Method = method,
-                    Params = JsonSerializer.SerializeToNode(parameters),
-                };
+                Id = id,
+                Method = method,
+                Params = JsonSerializer.SerializeToNode(parameters),
+            };
 
-                var json = JsonSerializer.Serialize(req);
+            var json = JsonSerializer.Serialize(req);
+            lock (_writeLock)
+            {
                 _writer.WriteLine(json);
-                respLine = _reader.ReadLine();
+                _writer.Flush();
             }
 
-            if (respLine == null)
-                throw new Exception("remote server closed the connection");
+            return await tcs.Task.ConfigureAwait(false);
+        }
 
-            var resp = JsonSerializer.Deserialize<Response>(respLine);
-            if (resp == null)
-                throw new Exception("malformed response from remote server");
-            if (resp.Id != id)
-                throw new Exception($"response id mismatch (sent {id}, got {resp.Id})");
-            if (resp.Error != null)
-                throw new Exception(resp.Error.Message ?? "remote error");
+        private void ReadLoop()
+        {
+            while (!_stopped)
+            {
+                string line;
+                try
+                {
+                    line = _reader.ReadLine();
+                }
+                catch
+                {
+                    break;
+                }
 
-            return resp.Result;
+                if (line == null)
+                    break;
+
+                JsonNode msg;
+                try
+                {
+                    msg = JsonNode.Parse(line);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (msg == null)
+                    continue;
+
+                var idNode = msg["id"];
+                if (idNode != null)
+                {
+                    var id = idNode.GetValue<long>();
+                    if (_pending.TryRemove(id, out var tcs))
+                    {
+                        var err = msg["error"];
+                        if (err != null)
+                            tcs.TrySetException(new Exception(err["message"]?.GetValue<string>() ?? "remote error"));
+                        else
+                            tcs.TrySetResult(msg["result"]);
+                    }
+                }
+                else
+                {
+                    var method = msg["method"]?.GetValue<string>();
+                    if (method != null)
+                    {
+                        try { NotificationReceived?.Invoke(method, msg["params"]); }
+                        catch { /* notification handlers must not tear down the read loop */ }
+                    }
+                }
+            }
+
+            foreach (var kv in _pending)
+                kv.Value.TrySetException(new Exception("remote server closed the connection"));
         }
 
         public void Dispose()
         {
-            _reader.Dispose();
-            _writer.Dispose();
+            _stopped = true;
+            try { _reader.Dispose(); } catch { }
+            try { _writer.Dispose(); } catch { }
         }
     }
 }

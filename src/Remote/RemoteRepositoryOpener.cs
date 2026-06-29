@@ -59,6 +59,8 @@ namespace SourceGit.Remote
             var repo = new Repository(isBare, remotePath, gitDir, isRemote: true);
             repo.RemoteConnection = conn;
             repo.FileSystem = new RemoteFileSystem(client);
+            repo.RemoteWatcher = new RemoteWatcher(repo, client);
+            client.Call("watch_start", new { path = remotePath });
             return repo;
         }
     }
