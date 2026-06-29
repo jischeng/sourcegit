@@ -11,7 +11,8 @@ namespace SourceGit.Remote
     /// connection's output stream and reads <see cref="Response"/>s back, correlating by id.
     /// <para>
     /// Calls are serialized (one outstanding request at a time) which matches the server's
-    /// single-threaded dispatch loop. A future phase may add concurrent multiplexing.
+    /// single-threaded dispatch loop. Server-pushed notifications (for remote change watching)
+    /// require a background read loop and are tracked separately.
     /// </para>
     /// </summary>
     public class RpcClient : IDisposable
