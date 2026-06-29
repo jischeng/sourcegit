@@ -63,16 +63,14 @@ namespace SourceGit.Remote
     {
         private readonly Process _proc;
 
-        public SshConnection(string host, string user, int port, string identityFile, string remoteServerCommand)
+        public SshConnection(string host, string remoteServerCommand)
         {
-            var args = "-T -o BatchMode=yes -o StrictHostKeyChecking=accept-new";
-            if (port > 0)
-                args += $" -p {port}";
-            if (!string.IsNullOrEmpty(identityFile))
-                args += $" -i \"{identityFile}\"";
-
-            var target = string.IsNullOrEmpty(user) ? host : $"{user}@{host}";
-            args += $" {target} {remoteServerCommand}";
+            // Reuse the user's ~/.ssh/config: `host` may be a config alias carrying
+            // ProxyJump (jump hosts / multi-hop), IdentityAgent/identity, port, user, etc.
+            // We only force no-tty and first-time host key acceptance; everything else
+            // comes from config so passwordless auth, jump hosts and multi-hop all work
+            // as the user already configured them.
+            var args = $"-T -o StrictHostKeyChecking=accept-new {host} {remoteServerCommand}";
 
             var psi = new ProcessStartInfo("ssh", args)
             {
