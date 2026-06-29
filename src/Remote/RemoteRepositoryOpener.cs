@@ -22,10 +22,10 @@ namespace SourceGit.Remote
     {
         /// <summary>
         /// Open <paramref name="remotePath"/> on <paramref name="host"/>. The returned
-        /// <paramref name="connection"/> owns the SSH process and must be disposed when the
-        /// repository is closed.
+        /// Repository owns the SSH connection; disposing it on close releases the process
+        /// and unregisters the runner.
         /// </summary>
-        public static Repository Open(Models.RemoteHost host, string remotePath, out IDisposable connection)
+        public static Repository Open(Models.RemoteHost host, string remotePath)
         {
             var conn = new SshConnection(host.Host, $"{host.RemoteServerPath} --remote-server");
             var client = new RpcClient(conn.Input, conn.Output);
@@ -56,8 +56,9 @@ namespace SourceGit.Remote
             else if (!gitDir.StartsWith('/'))
                 gitDir = remotePath.TrimEnd('/') + "/" + gitDir;
 
-            connection = conn;
-            return new Repository(isBare, remotePath, gitDir, isRemote: true);
+            var repo = new Repository(isBare, remotePath, gitDir, isRemote: true);
+            repo.RemoteConnection = conn;
+            return repo;
         }
     }
 }

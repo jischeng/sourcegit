@@ -430,6 +430,8 @@ namespace SourceGit.ViewModels
 
         public bool IsRemote { get; } = false;
 
+        internal IDisposable RemoteConnection { get; set; } = null;
+
         public Repository(bool isBare, string path, string gitDir)
             : this(isBare, path, gitDir, false)
         {
@@ -512,6 +514,12 @@ namespace SourceGit.ViewModels
 
             _watcher?.Dispose();
             _autoFetchTimer.Dispose();
+
+            if (IsRemote)
+            {
+                Commands.CommandRunnerRegistry.Unregister(FullPath);
+                RemoteConnection?.Dispose();
+            }
         }
 
         public void SendNotification(string message, bool isError = false)
