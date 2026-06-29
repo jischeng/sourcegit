@@ -502,8 +502,8 @@ namespace SourceGit.ViewModels
                 IsCommitting = true;
 
                 var mergeMsgFile = Path.Combine(_repo.GitDir, "MERGE_MSG");
-                if (File.Exists(mergeMsgFile) && !string.IsNullOrWhiteSpace(_commitMessage))
-                    await File.WriteAllTextAsync(mergeMsgFile, _commitMessage);
+                if (_repo.FileSystem.FileExists(mergeMsgFile) && !string.IsNullOrWhiteSpace(_commitMessage))
+                    await _repo.FileSystem.WriteAllTextAsync(mergeMsgFile, _commitMessage);
 
                 var log = _repo.CreateLog($"Continue {_inProgressContext.Name}");
                 await _inProgressContext.ContinueAsync(log);
@@ -731,13 +731,13 @@ namespace SourceGit.ViewModels
         {
             var oldType = _inProgressContext != null ? _inProgressContext.GetType() : null;
 
-            if (File.Exists(Path.Combine(_repo.GitDir, "CHERRY_PICK_HEAD")))
+            if (_repo.FileSystem.FileExists(Path.Combine(_repo.GitDir, "CHERRY_PICK_HEAD")))
                 InProgressContext = new CherryPickInProgress(_repo);
-            else if (Directory.Exists(Path.Combine(_repo.GitDir, "rebase-merge")) || Directory.Exists(Path.Combine(_repo.GitDir, "rebase-apply")))
+            else if (_repo.FileSystem.DirectoryExists(Path.Combine(_repo.GitDir, "rebase-merge")) || _repo.FileSystem.DirectoryExists(Path.Combine(_repo.GitDir, "rebase-apply")))
                 InProgressContext = new RebaseInProgress(_repo);
-            else if (File.Exists(Path.Combine(_repo.GitDir, "REVERT_HEAD")))
+            else if (_repo.FileSystem.FileExists(Path.Combine(_repo.GitDir, "REVERT_HEAD")))
                 InProgressContext = new RevertInProgress(_repo);
-            else if (File.Exists(Path.Combine(_repo.GitDir, "MERGE_HEAD")))
+            else if (_repo.FileSystem.FileExists(Path.Combine(_repo.GitDir, "MERGE_HEAD")))
                 InProgressContext = new MergeInProgress(_repo);
             else
                 InProgressContext = null;
@@ -759,10 +759,10 @@ namespace SourceGit.ViewModels
 
         private bool LoadCommitMessageFromFile(string file)
         {
-            if (!File.Exists(file))
+            if (!_repo.FileSystem.FileExists(file))
                 return false;
 
-            var msg = File.ReadAllText(file).Trim();
+            var msg = _repo.FileSystem.ReadAllText(file).Trim();
             if (string.IsNullOrEmpty(msg))
                 return false;
 
