@@ -432,6 +432,13 @@ namespace SourceGit.ViewModels
 
         internal IDisposable RemoteConnection { get; set; } = null;
 
+        /// <summary>
+        /// Filesystem accessor for the working tree and .git internals. Local repos use
+        /// <see cref="LocalFileSystem"/> (direct File./Directory.); remote repos use a
+        /// <see cref="Remote.RemoteFileSystem"/> that routes over RPC.
+        /// </summary>
+        public Models.IFileSystem FileSystem { get; internal set; } = Models.LocalFileSystem.Instance;
+
         public Repository(bool isBare, string path, string gitDir)
             : this(isBare, path, gitDir, false)
         {

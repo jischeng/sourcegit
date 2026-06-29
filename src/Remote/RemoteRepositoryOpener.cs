@@ -58,6 +58,7 @@ namespace SourceGit.Remote
 
             var repo = new Repository(isBare, remotePath, gitDir, isRemote: true);
             repo.RemoteConnection = conn;
+            repo.FileSystem = new RemoteFileSystem(client);
             return repo;
         }
     }
