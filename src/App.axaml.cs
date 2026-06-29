@@ -36,7 +36,9 @@ namespace SourceGit
 
             try
             {
-                if (TryLaunchAsRebaseTodoEditor(args, out int exitTodo))
+                if (TryLaunchAsRemoteServer(args, out int exitRemote))
+                    Environment.Exit(exitRemote);
+                else if (TryLaunchAsRebaseTodoEditor(args, out int exitTodo))
                     Environment.Exit(exitTodo);
                 else if (TryLaunchAsRebaseMessageEditor(args, out int exitMessage))
                     Environment.Exit(exitMessage);
@@ -275,6 +277,21 @@ namespace SourceGit
         #endregion
 
         #region Launch Ways
+        private static bool TryLaunchAsRemoteServer(string[] args, out int exitCode)
+        {
+            exitCode = -1;
+
+            if (args.Length == 0 || !args[0].Equals("--remote-server", StringComparison.Ordinal))
+                return false;
+
+            // Run as a headless JSON-RPC server over stdio (typically launched via
+            // `ssh <host> sourcegit --remote-server`). No Avalonia desktop lifetime,
+            // no window; the loop blocks on stdin until the SSH channel closes.
+            var server = new Remote.RpcServer();
+            exitCode = server.Run();
+            return true;
+        }
+
         private static bool TryLaunchAsRebaseTodoEditor(string[] args, out int exitCode)
         {
             exitCode = -1;
