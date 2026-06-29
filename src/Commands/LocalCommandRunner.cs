@@ -144,6 +144,12 @@ namespace SourceGit.Commands
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
 
+            if (spec.StdinContent != null)
+            {
+                await proc.StandardInput.WriteAsync(spec.StdinContent).ConfigureAwait(false);
+                proc.StandardInput.Close();
+            }
+
             try
             {
                 await proc.WaitForExitAsync(ct).ConfigureAwait(false);

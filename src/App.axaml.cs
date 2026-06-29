@@ -348,6 +348,15 @@ namespace SourceGit
             fs.DeleteFile(tmp);
             Console.Out.WriteLine($"[selftest] fs deleted tmp exists={fs.FileExists(tmp)}");
 
+            // stdin (commit message via -F -, pathspec via --pathspec-from-file=-)
+            var stdinRS = runner.ReadToEnd(new Commands.Command.RunSpec
+            {
+                Args = "hash-object --stdin",
+                WorkingDirectory = workingDir,
+                StdinContent = "hello-stdin",
+            });
+            Console.Out.WriteLine($"[selftest] hash-object --stdin stdout={stdinRS.StdOut.Trim()} ok={stdinRS.IsSuccess}");
+
             return 0;
         }
 

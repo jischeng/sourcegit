@@ -1,4 +1,3 @@
-﻿using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -8,16 +7,12 @@ namespace SourceGit.Commands
     {
         public Commit(string repo, string message, bool signOff, bool noVerify, bool amend, bool resetAuthor)
         {
-            _tmpFile = Path.GetTempFileName();
-            _message = message;
-
             WorkingDirectory = repo;
             Context = repo;
+            Stdin = message;
 
             var builder = new StringBuilder();
-            builder.Append("commit --allow-empty --file=");
-            builder.Append(_tmpFile.Quoted());
-            builder.Append(' ');
+            builder.Append("commit --allow-empty --file=- ");
 
             if (signOff)
                 builder.Append("--signoff ");
@@ -40,18 +35,12 @@ namespace SourceGit.Commands
         {
             try
             {
-                await File.WriteAllTextAsync(_tmpFile, _message).ConfigureAwait(false);
-                var succ = await ExecAsync().ConfigureAwait(false);
-                File.Delete(_tmpFile);
-                return succ;
+                return await ExecAsync().ConfigureAwait(false);
             }
             catch
             {
                 return false;
             }
         }
-
-        private readonly string _tmpFile;
-        private readonly string _message;
     }
 }
