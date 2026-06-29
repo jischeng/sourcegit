@@ -45,6 +45,16 @@ namespace SourceGit.ViewModels
             set => SetProperty(ref _isRepository, value);
         }
 
+        public bool IsRemote
+        {
+            get; set;
+        }
+
+        public Models.RemoteHost RemoteHost
+        {
+            get; set;
+        }
+
         public bool IsExpanded
         {
             get => _isExpanded;
@@ -61,7 +71,7 @@ namespace SourceGit.ViewModels
         [JsonIgnore]
         public bool IsInvalid
         {
-            get => _isRepository && !Directory.Exists(_id);
+            get => _isRepository && !IsRemote && !Directory.Exists(_id);
         }
 
         [JsonIgnore]

@@ -304,34 +304,56 @@ namespace SourceGit.ViewModels
                 }
             }
 
-            if (!Directory.Exists(node.Id))
+            Repository repo;
+            if (node.IsRemote)
             {
-                ActivePage.Notifications.Add(new Models.Notification
+                try
                 {
-                    Group = node.Id,
-                    Message = "Repository does NOT exist any more. Please remove it.",
-                    IsError = true,
-                });
-                return;
+                    repo = Remote.RemoteRepositoryOpener.Open(node.RemoteHost, node.Id);
+                }
+                catch (Exception ex)
+                {
+                    ActivePage.Notifications.Add(new Models.Notification
+                    {
+                        Group = node.Id,
+                        Message = $"Failed to open remote repository: {ex.Message}",
+                        IsError = true,
+                    });
+                    return;
+                }
+            }
+            else
+            {
+                if (!Directory.Exists(node.Id))
+                {
+                    ActivePage.Notifications.Add(new Models.Notification
+                    {
+                        Group = node.Id,
+                        Message = "Repository does NOT exist any more. Please remove it.",
+                        IsError = true,
+                    });
+                    return;
+                }
+
+                var isBare = new Commands.IsBareRepository(node.Id).GetResult();
+                var gitDir = isBare ? node.Id : GetRepositoryGitDir(node.Id);
+                if (string.IsNullOrEmpty(gitDir))
+                {
+                    ActivePage.Notifications.Add(new Models.Notification
+                    {
+                        Group = node.Id,
+                        Message = "Given path is not a valid git repository!",
+                        IsError = true,
+                    });
+                    return;
+                }
+
+                if (node.IsUnmanaged)
+                    node.LoadMinimalInfo(gitDir);
+
+                repo = new Repository(isBare, node.Id, gitDir);
             }
 
-            var isBare = new Commands.IsBareRepository(node.Id).GetResult();
-            var gitDir = isBare ? node.Id : GetRepositoryGitDir(node.Id);
-            if (string.IsNullOrEmpty(gitDir))
-            {
-                ActivePage.Notifications.Add(new Models.Notification
-                {
-                    Group = node.Id,
-                    Message = "Given path is not a valid git repository!",
-                    IsError = true,
-                });
-                return;
-            }
-
-            if (node.IsUnmanaged)
-                node.LoadMinimalInfo(gitDir);
-
-            var repo = new Repository(isBare, node.Id, gitDir);
             repo.Open();
 
             if (page == null)

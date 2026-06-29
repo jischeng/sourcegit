@@ -16,6 +16,26 @@ namespace SourceGit.ViewModels
             set => SetProperty(ref _repoPath, value, true);
         }
 
+        public bool IsSSHRemote
+        {
+            get; set;
+        }
+
+        public string SSHHost
+        {
+            get; set;
+        } = string.Empty;
+
+        public string RemoteServerPath
+        {
+            get; set;
+        } = "sourcegit";
+
+        public string RemotePath
+        {
+            get; set;
+        } = string.Empty;
+
         public List<RepositoryNode> Groups
         {
             get;
@@ -52,6 +72,9 @@ namespace SourceGit.ViewModels
 
         public override async Task<bool> Sure()
         {
+            if (IsSSHRemote)
+                return await OpenRemoteAsync();
+
             var isBare = await new Commands.IsBareRepository(_repoPath).GetResultAsync();
             var parent = _group is { Id: not "" } ? _group : null;
             var repoRoot = _repoPath;
@@ -79,6 +102,26 @@ namespace SourceGit.ViewModels
             }
 
             var node = Preferences.Instance.FindOrAddNodeByRepositoryPath(repoRoot, parent, true);
+            node.Bookmark = _bookmark;
+            await node.UpdateStatusAsync(false, null);
+            Welcome.Instance.Refresh();
+            node.Open();
+            return true;
+        }
+
+        private async Task<bool> OpenRemoteAsync()
+        {
+            var host = new Models.RemoteHost
+            {
+                Name = SSHHost,
+                Host = SSHHost,
+                RemoteServerPath = string.IsNullOrEmpty(RemoteServerPath) ? "sourcegit" : RemoteServerPath,
+            };
+
+            var parent = _group is { Id: not "" } ? _group : null;
+            var node = Preferences.Instance.FindOrAddNodeByRepositoryPath(RemotePath, parent, true);
+            node.IsRemote = true;
+            node.RemoteHost = host;
             node.Bookmark = _bookmark;
             await node.UpdateStatusAsync(false, null);
             Welcome.Instance.Refresh();
