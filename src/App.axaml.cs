@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Avalonia;
@@ -36,7 +37,9 @@ namespace SourceGit
 
             try
             {
-                if (TryLaunchAsRemoteServer(args, out int exitRemote))
+                if (TryLaunchAsRemoteSelfTest(args, out int exitSelfTest))
+                    Environment.Exit(exitSelfTest);
+                else if (TryLaunchAsRemoteServer(args, out int exitRemote))
                     Environment.Exit(exitRemote);
                 else if (TryLaunchAsRebaseTodoEditor(args, out int exitTodo))
                     Environment.Exit(exitTodo);
@@ -290,6 +293,52 @@ namespace SourceGit
             var server = new Remote.RpcServer();
             exitCode = server.Run();
             return true;
+        }
+
+        private static bool TryLaunchAsRemoteSelfTest(string[] args, out int exitCode)
+        {
+            exitCode = -1;
+
+            if (args.Length == 0 || !args[0].Equals("--remote-selftest", StringComparison.Ordinal))
+                return false;
+
+            // Development/verification helper: spin up a local server and drive it through
+            // RemoteCommandRunner, exercising Start/ReadToEnd/ExecAsync. Not shipped UX.
+            exitCode = RunRemoteSelfTestAsync(args).GetAwaiter().GetResult();
+            return true;
+        }
+
+        private static async Task<int> RunRemoteSelfTestAsync(string[] args)
+        {
+            var dll = Path.Combine(AppContext.BaseDirectory, "SourceGit.dll");
+            var dotnet = Environment.ProcessPath ?? "dotnet";
+            var workingDir = args.Length > 1 ? args[1] : Directory.GetCurrentDirectory();
+
+            using var conn = new Remote.LocalProcessConnection(dotnet, $"\"{dll}\" --remote-server");
+            using var client = new Remote.RpcClient(conn.Input, conn.Output);
+            var runner = new Remote.RemoteCommandRunner(client);
+
+            Console.Out.WriteLine($"[selftest] working_dir={workingDir}");
+
+            var spec = new Commands.Command.RunSpec { Args = "log --oneline -3", WorkingDirectory = workingDir };
+            using (var proc = runner.Start(spec))
+            {
+                while (await proc.Stdout.ReadLineAsync() is { } line)
+                    Console.Out.WriteLine($"[selftest] log: {line}");
+                await proc.WaitForExitAsync(CancellationToken.None);
+                Console.Out.WriteLine($"[selftest] exit={proc.ExitCode}");
+            }
+
+            var rs = runner.ReadToEnd(new Commands.Command.RunSpec { Args = "status --porcelain", WorkingDirectory = workingDir });
+            Console.Out.WriteLine($"[selftest] status isSuccess={rs.IsSuccess} stdout={rs.StdOut.Trim()}");
+
+            var ok = await runner.ExecAsync(
+                new Commands.Command.RunSpec { Args = "branch --list", WorkingDirectory = workingDir },
+                line => Console.Out.WriteLine($"[selftest] branch: {line}"),
+                CancellationToken.None);
+            Console.Out.WriteLine($"[selftest] branch exec ok={ok}");
+
+            return 0;
         }
 
         private static bool TryLaunchAsRebaseTodoEditor(string[] args, out int exitCode)
