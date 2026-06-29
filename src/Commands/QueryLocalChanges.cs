@@ -33,11 +33,9 @@ namespace SourceGit.Commands
 
             try
             {
-                using var proc = new Process();
-                proc.StartInfo = CreateGitStartInfo(true);
-                proc.Start();
+                using var proc = Runner.Start(BuildSpec());
 
-                while (await proc.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { } line)
+                while (await proc.Stdout.ReadLineAsync().ConfigureAwait(false) is { } line)
                 {
                     var match = REG_FORMAT().Match(line);
                     if (!match.Success)

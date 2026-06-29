@@ -1,7 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SourceGit.Commands
@@ -50,27 +50,21 @@ namespace SourceGit.Commands
 
         public async Task<bool> ExecAsync()
         {
-            var starter = new ProcessStartInfo();
-            starter.WorkingDirectory = _repo;
-            starter.FileName = Native.OS.GitExecutable;
-            starter.Arguments = "-c core.editor=true update-index --index-info";
-            starter.UseShellExecute = false;
-            starter.CreateNoWindow = true;
-            starter.WindowStyle = ProcessWindowStyle.Hidden;
-            starter.RedirectStandardInput = true;
-            starter.RedirectStandardOutput = false;
-            starter.RedirectStandardError = true;
-            starter.StandardInputEncoding = new UTF8Encoding(false);
-            starter.StandardErrorEncoding = Encoding.UTF8;
+            var spec = new Command.RunSpec
+            {
+                Args = "-c core.editor=true update-index --index-info",
+                WorkingDirectory = _repo,
+                RedirectStandardInput = true,
+            };
 
             try
             {
-                using var proc = Process.Start(starter)!;
-                await proc.StandardInput.WriteAsync(_patchBuilder.ToString());
-                proc.StandardInput.Close();
+                using var proc = LocalCommandRunner.Instance.Start(spec);
+                await proc.Stdin.WriteAsync(_patchBuilder.ToString());
+                proc.Stdin.Close();
 
-                var err = await proc.StandardError.ReadToEndAsync().ConfigureAwait(false);
-                await proc.WaitForExitAsync().ConfigureAwait(false);
+                var err = await proc.Stderr.ReadToEndAsync().ConfigureAwait(false);
+                await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
                 var rs = proc.ExitCode == 0;
 
                 if (!rs)

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Threading;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -55,12 +55,10 @@ namespace SourceGit.Commands
             var commits = new List<Models.Commit>();
             try
             {
-                using var proc = new Process();
-                proc.StartInfo = CreateGitStartInfo(true);
-                proc.Start();
+                using var proc = Runner.Start(BuildSpec());
 
                 var findHead = false;
-                while (await proc.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { } line)
+                while (await proc.Stdout.ReadLineAsync().ConfigureAwait(false) is { } line)
                 {
                     var parts = line.Split('\0');
                     if (parts.Length != 8)
@@ -80,7 +78,7 @@ namespace SourceGit.Commands
                         findHead = true;
                 }
 
-                await proc.WaitForExitAsync().ConfigureAwait(false);
+                await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
 
                 if (_markMerged && !findHead && commits.Count > 0)
                 {

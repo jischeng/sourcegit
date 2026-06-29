@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+﻿using System.Threading;
 using System.Threading.Tasks;
 
 namespace SourceGit.Commands
@@ -13,22 +13,7 @@ namespace SourceGit.Commands
 
         public async Task<int> GetExitCodeAsync()
         {
-            using var proc = new Process();
-            proc.StartInfo = CreateGitStartInfo(false);
-
-            var exitCode = -1;
-            try
-            {
-                proc.Start();
-                await proc.WaitForExitAsync().ConfigureAwait(false);
-                exitCode = proc.ExitCode;
-            }
-            catch
-            {
-                // Ignore any exceptions and just return -1
-            }
-
-            return exitCode;
+            return await Runner.RunForExitCodeAsync(BuildSpec(), CancellationToken.None).ConfigureAwait(false);
         }
     }
 }

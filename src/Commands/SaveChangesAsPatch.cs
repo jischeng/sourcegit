@@ -1,7 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SourceGit.Commands
@@ -51,20 +51,17 @@ namespace SourceGit.Commands
 
         private static async Task<bool> ProcessSingleChangeAsync(string repo, Models.DiffOption opt, FileStream writer)
         {
-            var starter = new ProcessStartInfo();
-            starter.WorkingDirectory = repo;
-            starter.FileName = Native.OS.GitExecutable;
-            starter.Arguments = $"diff --no-color --no-ext-diff --ignore-cr-at-eol --unified=4 {opt}";
-            starter.UseShellExecute = false;
-            starter.CreateNoWindow = true;
-            starter.WindowStyle = ProcessWindowStyle.Hidden;
-            starter.RedirectStandardOutput = true;
+            var spec = new Command.RunSpec
+            {
+                Args = $"diff --no-color --no-ext-diff --ignore-cr-at-eol --unified=4 {opt}",
+                WorkingDirectory = repo,
+            };
 
             try
             {
-                using var proc = Process.Start(starter)!;
-                await proc.StandardOutput.BaseStream.CopyToAsync(writer).ConfigureAwait(false);
-                await proc.WaitForExitAsync().ConfigureAwait(false);
+                using var proc = LocalCommandRunner.Instance.Start(spec);
+                await proc.StdoutStream.CopyToAsync(writer).ConfigureAwait(false);
+                await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
                 return proc.ExitCode == 0;
             }
             catch (Exception e)
