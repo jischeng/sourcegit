@@ -159,6 +159,7 @@ namespace SourceGit.Remote
                 SSHKey = sshKey ?? string.Empty,
                 Editor = editor,
                 RedirectStandardInput = stdin != null,
+                Headless = true,
             };
 
             // Launch git locally (the server host *is* the repo host). The runner injects

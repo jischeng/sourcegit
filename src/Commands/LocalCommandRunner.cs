@@ -188,13 +188,19 @@ namespace SourceGit.Commands
             if (spec.RedirectStandardInput || spec.StdinContent != null)
                 start.RedirectStandardInput = true;
 
-            // Force using this app as SSH askpass program
             var selfExecFile = Environment.ProcessPath;
-            start.Environment.Add("SSH_ASKPASS", selfExecFile); // Can not use parameter here, because it invoked by SSH with `exec`
-            start.Environment.Add("SSH_ASKPASS_REQUIRE", "prefer");
-            start.Environment.Add("SOURCEGIT_LAUNCH_AS_ASKPASS", "TRUE");
-            if (!OperatingSystem.IsLinux())
-                start.Environment.Add("DISPLAY", "required");
+
+            // Force using this app as SSH askpass program (GUI). Only for the local client;
+            // the headless remote server skips this so ssh uses the agent/identity from the
+            // user's ssh config instead of a non-existent GUI askpass.
+            if (!spec.Headless)
+            {
+                start.Environment.Add("SSH_ASKPASS", selfExecFile); // Can not use parameter here, because it invoked by SSH with `exec`
+                start.Environment.Add("SSH_ASKPASS_REQUIRE", "prefer");
+                start.Environment.Add("SOURCEGIT_LAUNCH_AS_ASKPASS", "TRUE");
+                if (!OperatingSystem.IsLinux())
+                    start.Environment.Add("DISPLAY", "required");
+            }
 
             // If an SSH private key was provided, sets the environment.
             if (!start.Environment.ContainsKey("GIT_SSH_COMMAND") && !string.IsNullOrEmpty(spec.SSHKey))

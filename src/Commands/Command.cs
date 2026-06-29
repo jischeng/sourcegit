@@ -49,6 +49,13 @@ namespace SourceGit.Commands
             /// is implied and the runner writes it before reading output.
             /// </summary>
             public string StdinContent = null;
+
+            /// <summary>
+            /// When true (server-side exec), skip setting the GUI SSH_ASKPASS env so git/ssh
+            /// rely on the agent/identity from ssh config instead of trying to launch a GUI
+            /// askpass that does not exist on a headless host.
+            /// </summary>
+            public bool Headless = false;
         }
 
         public string Context { get; set; } = string.Empty;
