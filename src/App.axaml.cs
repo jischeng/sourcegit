@@ -338,6 +338,16 @@ namespace SourceGit
                 CancellationToken.None);
             Console.Out.WriteLine($"[selftest] branch exec ok={ok}");
 
+            var fs = new Remote.RemoteFileSystem(client);
+            var readme = Path.Combine(workingDir, "README.md");
+            var version = Path.Combine(workingDir, "VERSION");
+            Console.Out.WriteLine($"[selftest] fs.FileExists(README)={fs.FileExists(readme)}");
+            Console.Out.WriteLine($"[selftest] fs.ReadAllText(VERSION)={fs.ReadAllText(version)}");
+            var tmp = fs.CreateTempFile("hello-remote");
+            Console.Out.WriteLine($"[selftest] fs.CreateTempFile={tmp} readback={fs.ReadAllText(tmp)}");
+            fs.DeleteFile(tmp);
+            Console.Out.WriteLine($"[selftest] fs deleted tmp exists={fs.FileExists(tmp)}");
+
             return 0;
         }
 
