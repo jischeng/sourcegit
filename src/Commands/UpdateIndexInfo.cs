@@ -59,7 +59,7 @@ namespace SourceGit.Commands
 
             try
             {
-                using var proc = LocalCommandRunner.Instance.Start(spec);
+                using var proc = (CommandRunnerRegistry.Get(_repo) ?? LocalCommandRunner.Instance).Start(spec);
                 await proc.Stdin.WriteAsync(_patchBuilder.ToString());
                 proc.Stdin.Close();
 

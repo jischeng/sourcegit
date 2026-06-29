@@ -18,7 +18,7 @@ namespace SourceGit.Commands
             var stream = new MemoryStream();
             try
             {
-                using var proc = LocalCommandRunner.Instance.Start(spec);
+                using var proc = (CommandRunnerRegistry.Get(repo) ?? LocalCommandRunner.Instance).Start(spec);
                 await proc.StdoutStream.CopyToAsync(stream).ConfigureAwait(false);
                 await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             }
@@ -43,7 +43,7 @@ namespace SourceGit.Commands
             var stream = new MemoryStream();
             try
             {
-                using var proc = LocalCommandRunner.Instance.Start(spec);
+                using var proc = (CommandRunnerRegistry.Get(repo) ?? LocalCommandRunner.Instance).Start(spec);
                 await proc.Stdin.WriteLineAsync("version https://git-lfs.github.com/spec/v1").ConfigureAwait(false);
                 await proc.Stdin.WriteLineAsync($"oid sha256:{oid}").ConfigureAwait(false);
                 await proc.Stdin.WriteLineAsync($"size {size}").ConfigureAwait(false);

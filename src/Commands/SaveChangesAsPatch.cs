@@ -59,7 +59,7 @@ namespace SourceGit.Commands
 
             try
             {
-                using var proc = LocalCommandRunner.Instance.Start(spec);
+                using var proc = (CommandRunnerRegistry.Get(repo) ?? LocalCommandRunner.Instance).Start(spec);
                 await proc.StdoutStream.CopyToAsync(writer).ConfigureAwait(false);
                 await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
                 return proc.ExitCode == 0;

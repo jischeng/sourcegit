@@ -38,7 +38,7 @@ namespace SourceGit.Commands
             {
                 try
                 {
-                    using var proc = LocalCommandRunner.Instance.Start(spec);
+                    using var proc = (CommandRunnerRegistry.Get(repo) ?? LocalCommandRunner.Instance).Start(spec);
 
                     if (input != null)
                     {

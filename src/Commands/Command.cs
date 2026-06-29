@@ -57,11 +57,11 @@ namespace SourceGit.Commands
         public Models.ICommandLog Log { get; set; } = null;
 
         /// <summary>
-        /// Runner that actually launches git. Defaults to local process execution
-        /// (<see cref="LocalCommandRunner"/>); future remote support will substitute an
-        /// RPC-backed runner per repository host.
+        /// Runner that actually launches git. Looks up a per-repository override in
+        /// <see cref="CommandRunnerRegistry"/> (registered for remote repositories);
+        /// falls back to <see cref="LocalCommandRunner"/> for local repositories.
         /// </summary>
-        protected ICommandRunner Runner { get; set; } = LocalCommandRunner.Instance;
+        protected ICommandRunner Runner => CommandRunnerRegistry.Get(WorkingDirectory) ?? LocalCommandRunner.Instance;
 
         /// <summary>
         /// Snapshot the current execution parameters into a <see cref="RunSpec"/> for the runner.
