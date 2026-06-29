@@ -98,7 +98,7 @@ namespace SourceGit.ViewModels
             Use(log);
 
             var extra = ThreeWayMerge ? "--3way" : string.Empty;
-            var succ = await new Commands.Apply(_repo.FullPath, finalPatchFile, _ignoreWhiteSpace, SelectedWhiteSpaceMode.Arg, extra)
+            var succ = await new Commands.Apply(_repo.FullPath, File.ReadAllText(finalPatchFile), _ignoreWhiteSpace, SelectedWhiteSpaceMode.Arg, extra)
                 .Use(log)
                 .ExecAsync();
 
