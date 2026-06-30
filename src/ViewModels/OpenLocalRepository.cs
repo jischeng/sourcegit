@@ -1,8 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Threading.Tasks;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Media;
+using Avalonia.Threading;
+
+using SourceGit.Remote;
 
 namespace SourceGit.ViewModels
 {
@@ -23,15 +28,33 @@ namespace SourceGit.ViewModels
             set => SetProperty(ref _isSSHRemote, value);
         }
 
+        private string _sshHost = string.Empty;
         public string SSHHost
         {
-            get; set;
-        } = string.Empty;
+            get => _sshHost;
+            set
+            {
+                if (SetProperty(ref _sshHost, value))
+                    _ = TestConnectionAsync();
+            }
+        }
 
+        private string _remotePath = string.Empty;
         public string RemotePath
         {
-            get; set;
-        } = string.Empty;
+            get => _remotePath;
+            set => SetProperty(ref _remotePath, value);
+        }
+
+        /// <summary>Host aliases parsed from ~/.ssh/config.</summary>
+        public List<string> SshHosts { get; } = SshConfigParser.GetHosts();
+
+        private IBrush _connectionStatusBrush = Brushes.Gray;
+        public IBrush ConnectionStatusBrush
+        {
+            get => _connectionStatusBrush;
+            set => SetProperty(ref _connectionStatusBrush, value);
+        }
 
         public List<RepositoryNode> Groups
         {
@@ -123,6 +146,44 @@ namespace SourceGit.ViewModels
             Welcome.Instance.Refresh();
             node.Open();
             return true;
+        }
+
+        /// <summary>
+        /// Open the remote folder picker so the user can browse directories on the SSH host
+        /// and pick the repository path instead of typing it.
+        /// </summary>
+        public void BrowseRemotePath()
+        {
+            if (string.IsNullOrEmpty(SSHHost))
+                return;
+
+            var owner = (App.Current.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+            if (owner == null)
+                return;
+
+            var picker = new Views.RemoteFolderPicker(SSHHost, RemotePath);
+            picker.ShowDialog<bool>(owner).ContinueWith(t =>
+            {
+                if (t.IsCompletedSuccessfully && t.Result)
+                    Dispatcher.UIThread.Post(() => RemotePath = picker.SelectedPath);
+            });
+        }
+
+        private async Task TestConnectionAsync()
+        {
+            if (string.IsNullOrEmpty(SSHHost))
+            {
+                ConnectionStatusBrush = Brushes.Gray;
+                return;
+            }
+
+            ConnectionStatusBrush = Brushes.Yellow;
+            var host = SSHHost;
+            var (stdout, exit) = await Task.Run(() => SshExec.Run(host, "echo OK")).ConfigureAwait(true);
+            if (host != SSHHost)
+                return; // selection changed meanwhile
+
+            ConnectionStatusBrush = (exit == 0 && stdout.Trim() == "OK") ? Brushes.Green : Brushes.Red;
         }
 
         private void CollectGroups(List<RepositoryNode> outs, List<RepositoryNode> collections)

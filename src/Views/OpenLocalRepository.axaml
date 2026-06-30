@@ -22,6 +22,7 @@
 
     <ToggleButton Margin="8,12,0,0"
                   Height="28"
+                  Focusable="False"
                   Content="{DynamicResource Text.OpenLocalRepository.SSHRemote}"
                   IsChecked="{Binding IsSSHRemote, Mode=TwoWay}"/>
 
@@ -67,31 +68,32 @@
                           Bookmark="{Binding Bookmark, Mode=TwoWay}"/>
     </Grid>
 
-    <Grid Margin="8,8,0,0" RowDefinitions="32,32,32,32" ColumnDefinitions="Auto,*"
+    <Grid Margin="8,8,0,0" RowDefinitions="32,32,32,32" ColumnDefinitions="*,Auto"
           IsVisible="{Binding IsSSHRemote}">
-      <TextBlock Grid.Row="0" Grid.Column="0"
-                 HorizontalAlignment="Right"
-                 Margin="0,0,8,0"
-                 Text="{DynamicResource Text.OpenLocalRepository.Host}"/>
-      <TextBox Grid.Row="0" Grid.Column="1"
-               Height="28"
-               CornerRadius="3"
-               Text="{Binding SSHHost, Mode=TwoWay}"/>
+      <ComboBox Grid.Row="0" Grid.Column="0"
+                Height="28" Padding="8,0"
+                VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                ItemsSource="{Binding SshHosts}"
+                SelectedItem="{Binding SSHHost, Mode=TwoWay}"
+                PlaceholderText="select ssh host"/>
+      <Ellipse Grid.Row="0" Grid.Column="1"
+               Width="12" Height="12"
+               Margin="8,0,0,0"
+               VerticalAlignment="Center"
+               Fill="{Binding ConnectionStatusBrush}"/>
 
-      <TextBlock Grid.Row="1" Grid.Column="0"
-                 HorizontalAlignment="Right"
-                 Margin="0,0,8,0"
-                 Text="{DynamicResource Text.OpenLocalRepository.RemotePath}"/>
-      <TextBox Grid.Row="1" Grid.Column="1"
+      <TextBox Grid.Row="1" Grid.Column="0"
                Height="28"
                CornerRadius="3"
+               Margin="0,0,4,0"
                Text="{Binding RemotePath, Mode=TwoWay}"/>
+      <Button Grid.Row="1" Grid.Column="1"
+              Classes="icon_button" Width="28" Height="28"
+              Click="OnBrowseRemotePath">
+        <Path Data="{StaticResource Icons.Folder.Open}" Fill="{DynamicResource Brush.FG1}"/>
+      </Button>
 
-      <TextBlock Grid.Row="2" Grid.Column="0"
-                 HorizontalAlignment="Right"
-                 Margin="0,0,8,0"
-                 Text="{DynamicResource Text.OpenLocalRepository.Group}"/>
-      <ComboBox Grid.Row="2" Grid.Column="1"
+      <ComboBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
                 Height="28" Padding="8,0"
                 VerticalAlignment="Center" HorizontalAlignment="Stretch"
                 ItemsSource="{Binding Groups}"
@@ -103,11 +105,7 @@
         </ComboBox.ItemTemplate>
       </ComboBox>
 
-      <TextBlock Grid.Row="3" Grid.Column="0"
-                 HorizontalAlignment="Right"
-                 Margin="0,0,8,0"
-                 Text="{DynamicResource Text.OpenLocalRepository.Bookmark}"/>
-      <v:BookmarkSelector Grid.Row="3" Grid.Column="1"
+      <v:BookmarkSelector Grid.Row="3" Grid.Column="0"
                           HorizontalAlignment="Left" VerticalAlignment="Center"
                           Bookmark="{Binding Bookmark, Mode=TwoWay}"/>
     </Grid>

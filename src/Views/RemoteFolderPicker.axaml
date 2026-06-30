@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SourceGit.Views.RemoteFolderPicker"
+        Title="Select Remote Folder"
+        Width="560" Height="440"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True">
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="10">
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+      <TextBox Grid.Column="0" x:Name="txtPath" Margin="0,0,6,0" Watermark="remote path"/>
+      <Button Grid.Column="1" Click="OnGo">Go</Button>
+    </Grid>
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6" Spacing="6">
+      <Button Click="OnUp">↑ Up</Button>
+      <Button Click="OnHome">Home</Button>
+    </StackPanel>
+    <ListBox Grid.Row="2" x:Name="lstEntries" DoubleTapped="OnDoubleTapped"/>
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0" Spacing="8">
+      <Button Click="OnConfirm" IsDefault="True">OK</Button>
+      <Button Click="OnCancel" IsCancel="True">Cancel</Button>
+    </StackPanel>
+  </Grid>
+</Window>
