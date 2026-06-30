@@ -525,12 +525,22 @@ namespace SourceGit.Views
 
         private void NavigateToHead(object sender, RoutedEventArgs e)
         {
-            if (DataContext is ViewModels.Repository { CurrentBranch: not null } repo)
+            if (DataContext is ViewModels.Repository repo)
             {
                 var repoView = TopLevel.GetTopLevel(this)?.FindDescendantOfType<Repository>();
-                repoView?.LocalBranchTree?.Select(repo.CurrentBranch);
 
-                repo.NavigateToCommit(repo.CurrentBranch.Head);
+                if (repo.CurrentBranch != null)
+                {
+                    repoView?.LocalBranchTree?.Select(repo.CurrentBranch);
+                    repo.NavigateToCommit(repo.CurrentBranch.Head);
+                }
+                else
+                {
+                    // Remote/bare repositories may not have a checked-out current branch,
+                    // but HEAD is still available.
+                    repo.NavigateToCommit("HEAD");
+                }
+
                 e.Handled = true;
             }
         }

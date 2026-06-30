@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 
 using SourceGit.Commands;
 using SourceGit.ViewModels;
@@ -21,7 +22,20 @@ namespace SourceGit.Remote
         {
             var session = RemoteHostManager.Instance.GetConnectedSession(host);
             if (session == null)
-                throw new Exception($"Host '{host?.Name ?? host?.Host}' is not connected. Connect it from Preferences first.");
+            {
+                // Auto-connect when opening a remote repository (restored tabs, recent repos, etc.).
+                // This makes remote SSH repositories behave like local ones: they just open.
+                var connected = Task.Run(async () => await RemoteHostManager.Instance.ConnectAsync(host).ConfigureAwait(false))
+                    .GetAwaiter()
+                    .GetResult();
+
+                if (!connected)
+                    throw new Exception($"Host '{host?.Name ?? host?.Host}' could not be connected automatically.");
+
+                session = RemoteHostManager.Instance.GetConnectedSession(host);
+                if (session == null)
+                    throw new Exception($"Host '{host?.Name ?? host?.Host}' is not connected.");
+            }
 
             var client = session.Client;
             var runner = new RemoteCommandRunner(client);

@@ -77,7 +77,7 @@ namespace SourceGit.Views
             if (LstEntries.SelectedItem is RemoteFolderEntry { IsDir: true } entry)
             {
                 var next = _current.TrimEnd('/');
-                next = string.IsNullOrEmpty(next) ? entry.Name : $"{next}/{entry.Name}";
+                next = string.IsNullOrEmpty(next) ? "/" + entry.Name : $"{next}/{entry.Name}";
                 _ = LoadAsync(next);
             }
 
@@ -90,7 +90,7 @@ namespace SourceGit.Views
             if (LstEntries.SelectedItem is RemoteFolderEntry { IsDir: true } entry)
             {
                 var sel = _current.TrimEnd('/');
-                SelectedPath = string.IsNullOrEmpty(sel) ? entry.Name : $"{sel}/{entry.Name}";
+                SelectedPath = string.IsNullOrEmpty(sel) ? "/" + entry.Name : $"{sel}/{entry.Name}";
             }
             else
             {
