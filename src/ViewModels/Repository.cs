@@ -430,8 +430,9 @@ namespace SourceGit.ViewModels
 
         public bool IsRemote { get; } = false;
 
-        internal IDisposable RemoteConnection { get; set; } = null;
-
+        // The live SSH connection is owned by Remote.RemoteHostSession (shared across repos),
+        // so the repository only owns its per-repo change watcher and never tears the
+        // connection down on close.
         internal IDisposable RemoteWatcher { get; set; } = null;
 
         /// <summary>
@@ -528,7 +529,6 @@ namespace SourceGit.ViewModels
             {
                 Commands.CommandRunnerRegistry.Unregister(FullPath);
                 RemoteWatcher?.Dispose();
-                RemoteConnection?.Dispose();
             }
         }
 

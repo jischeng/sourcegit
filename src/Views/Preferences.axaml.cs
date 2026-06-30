@@ -129,6 +129,24 @@ namespace SourceGit.Views
             set => SetAndRaise(SelectedCustomActionProperty, ref _selectedCustomAction, value);
         }
 
+        public static readonly DirectProperty<Preferences, Models.RemoteHost> SelectedRemoteHostProperty =
+            AvaloniaProperty.RegisterDirect<Preferences, Models.RemoteHost>(
+                nameof(SelectedRemoteHost),
+                static o => o.SelectedRemoteHost,
+                static (o, v) => o.SelectedRemoteHost = v);
+
+        public Models.RemoteHost SelectedRemoteHost
+        {
+            get => _selectedRemoteHost;
+            set => SetAndRaise(SelectedRemoteHostProperty, ref _selectedRemoteHost, value);
+        }
+
+        /// <summary>Host aliases parsed from ~/.ssh/config, offered as suggestions.</summary>
+        public List<string> SshConfigHosts
+        {
+            get;
+        } = Remote.SshConfigParser.GetHosts();
+
         public Preferences()
         {
             var pref = ViewModels.Preferences.Instance;
@@ -518,11 +536,76 @@ namespace SourceGit.Views
             ShowGitVersionWarning = !string.IsNullOrEmpty(GitVersion) && Native.OS.GitVersion < Models.GitVersions.MINIMAL;
         }
 
+        private void OnAddRemoteHost(object sender, RoutedEventArgs e)
+        {
+            var host = new Models.RemoteHost { Name = "Unnamed Host", Host = string.Empty };
+            ViewModels.Preferences.Instance.RemoteHosts.Add(host);
+            SelectedRemoteHost = host;
+            ViewModels.Preferences.Instance.Save();
+            e.Handled = true;
+        }
+
+        private void OnRemoveSelectedRemoteHost(object sender, RoutedEventArgs e)
+        {
+            if (SelectedRemoteHost == null)
+                return;
+
+            Remote.RemoteHostManager.Instance.Disconnect(SelectedRemoteHost);
+            ViewModels.Preferences.Instance.RemoteHosts.Remove(SelectedRemoteHost);
+            SelectedRemoteHost = null;
+            ViewModels.Preferences.Instance.Save();
+            e.Handled = true;
+        }
+
+        private void OnPickSshConfigHost(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox { SelectedItem: string alias, DataContext: Models.RemoteHost host } combo &&
+                !string.IsNullOrEmpty(alias))
+            {
+                host.Host = alias;
+                if (string.IsNullOrWhiteSpace(host.Name) || host.Name == "Unnamed Host")
+                    host.Name = alias;
+
+                combo.SelectedItem = null;
+            }
+
+            e.Handled = true;
+        }
+
+        private void OnTestRemoteHost(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { DataContext: Models.RemoteHost host })
+                _ = Remote.RemoteHostManager.Instance.TestAsync(host);
+            e.Handled = true;
+        }
+
+        private void OnConnectRemoteHost(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { DataContext: Models.RemoteHost host })
+                _ = Remote.RemoteHostManager.Instance.ConnectAsync(host);
+            e.Handled = true;
+        }
+
+        private void OnDisconnectRemoteHost(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { DataContext: Models.RemoteHost host })
+                Remote.RemoteHostManager.Instance.Disconnect(host);
+            e.Handled = true;
+        }
+
+        private void OnResetRemoteHost(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { DataContext: Models.RemoteHost host })
+                _ = Remote.RemoteHostManager.Instance.ResetAsync(host);
+            e.Handled = true;
+        }
+
         private string _gitVersion = string.Empty;
         private bool _showGitVersionWarning = false;
         private Models.GPGFormat _gpgFormat = Models.GPGFormat.Supported[0];
         private string _gpgExecutableFile = string.Empty;
         private AI.Service _selectedOpenAIService = null;
         private Models.CustomAction _selectedCustomAction = null;
+        private Models.RemoteHost _selectedRemoteHost = null;
     }
 }

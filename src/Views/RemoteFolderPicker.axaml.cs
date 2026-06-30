@@ -1,26 +1,32 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Text.Json;
 using System.Threading.Tasks;
+
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
 
 using SourceGit.Remote;
 
 namespace SourceGit.Views
 {
+    /// <summary>One row in the remote folder browser.</summary>
+    public class RemoteFolderEntry
+    {
+        public string Name { get; init; } = string.Empty;
+        public bool IsDir { get; init; }
+    }
+
     /// <summary>
-    /// A lightweight remote folder browser: lists sub-directories of a path on the SSH host
-    /// (via `ssh host ls -1p`), lets the user navigate up/into/Go, and returns the chosen
-    /// path via <see cref="SelectedPath"/>. Reuses the host alias so ssh config applies.
+    /// Themed remote folder browser. Lists directories on the host over its existing RPC
+    /// connection (<c>list_dir</c>), lets the user navigate up / into / type a path, and
+    /// returns the chosen folder via <see cref="SelectedPath"/>. Because it reuses the live
+    /// connection, navigation is fast and does not re-authenticate per step.
     /// </summary>
-    public partial class RemoteFolderPicker : Window
+    public partial class RemoteFolderPicker : ChromelessWindow
     {
         public string SelectedPath { get; private set; } = string.Empty;
-
-        private readonly string _host;
-        private string _current = ".";
-        private readonly ObservableCollection<string> _entries = new();
 
         public RemoteFolderPicker()
         {
@@ -28,90 +34,111 @@ namespace SourceGit.Views
             InitializeComponent();
         }
 
-        public RemoteFolderPicker(string host, string initialPath)
+        public RemoteFolderPicker(Models.RemoteHost host, RpcClient client, string initialPath)
         {
             _host = host;
-            _current = string.IsNullOrEmpty(initialPath) ? "." : initialPath;
+            _client = client;
+            _current = initialPath ?? string.Empty;
 
             InitializeComponent();
 
-
-            var txt = this.FindControl<TextBox>("txtPath");
-            if (txt != null)
-                txt.Text = _current;
-
-            var lst = this.FindControl<ListBox>("lstEntries");
-            if (lst != null)
-                lst.ItemsSource = _entries;
-
-            _ = LoadAsync();
+            LstEntries.ItemsSource = _entries;
+            _ = LoadAsync(_current);
         }
 
-        public void OnGo(object _, RoutedEventArgs e)
+        private void OnGoUp(object _, RoutedEventArgs e)
         {
-            var txt = this.FindControl<TextBox>("txtPath");
-            if (txt != null)
-                _current = txt.Text ?? ".";
-            _ = LoadAsync();
+            if (string.IsNullOrEmpty(_current) || _current == "/")
+                return;
+
+            var idx = _current.TrimEnd('/').LastIndexOf('/');
+            var parent = idx <= 0 ? "/" : _current.Substring(0, idx);
+            _ = LoadAsync(parent);
+            e.Handled = true;
         }
 
-        public void OnUp(object _, RoutedEventArgs e) => GoUp();
-
-        public void OnHome(object _, RoutedEventArgs e)
+        private void OnGoHome(object _, RoutedEventArgs e)
         {
-            _current = ".";
-            UpdatePathText();
-            _ = LoadAsync();
+            _ = LoadAsync("~");
+            e.Handled = true;
         }
 
-        public async void OnDoubleTapped(object _, RoutedEventArgs e)
+        private void OnPathKeyDown(object sender, KeyEventArgs e)
         {
-            var lst = this.FindControl<ListBox>("lstEntries");
-            if (lst?.SelectedItem is string sel)
+            if (e.Key == Key.Enter && sender is TextBox tb)
             {
-                _current = _current == "." ? sel : (_current == "/" ? "/" + sel : _current + "/" + sel);
-                UpdatePathText();
-                await LoadAsync();
+                _ = LoadAsync(tb.Text ?? string.Empty);
+                e.Handled = true;
             }
         }
 
-        public void OnConfirm(object _, RoutedEventArgs e)
+        private void OnEntryDoubleTapped(object _, RoutedEventArgs e)
         {
-            var txt = this.FindControl<TextBox>("txtPath");
-            SelectedPath = txt?.Text ?? _current;
+            if (LstEntries.SelectedItem is RemoteFolderEntry { IsDir: true } entry)
+            {
+                var next = _current.TrimEnd('/');
+                next = string.IsNullOrEmpty(next) ? entry.Name : $"{next}/{entry.Name}";
+                _ = LoadAsync(next);
+            }
+
+            e.Handled = true;
+        }
+
+        private void OnConfirm(object _, RoutedEventArgs e)
+        {
+            // Prefer an explicitly selected sub-directory; otherwise use the current folder.
+            if (LstEntries.SelectedItem is RemoteFolderEntry { IsDir: true } entry)
+            {
+                var sel = _current.TrimEnd('/');
+                SelectedPath = string.IsNullOrEmpty(sel) ? entry.Name : $"{sel}/{entry.Name}";
+            }
+            else
+            {
+                SelectedPath = _current;
+            }
+
             Close(true);
         }
 
-        public void OnCancel(object _, RoutedEventArgs e) => Close(false);
+        private void OnCancel(object _, RoutedEventArgs e) => Close(false);
 
-        private void GoUp()
+        private async Task LoadAsync(string path)
         {
-            if (string.IsNullOrEmpty(_current) || _current == "." || _current == "/" )
+            if (_client == null)
                 return;
 
-            var idx = _current.LastIndexOf('/');
-            _current = idx <= 0 ? "/" : _current.Substring(0, idx);
-            UpdatePathText();
-            _ = LoadAsync();
-        }
+            LoadingTip.IsVisible = true;
 
-        private void UpdatePathText()
-        {
-            var txt = this.FindControl<TextBox>("txtPath");
-            if (txt != null)
-                txt.Text = _current;
-        }
-
-        private async Task LoadAsync()
-        {
-            _entries.Clear();
-            var cmd = $"ls -1p '{_current.Replace("'", "'\\''")}' 2>/dev/null";
-            var (stdout, _) = await Task.Run(() => SshExec.Run(_host, cmd)).ConfigureAwait(true);
-            foreach (var line in stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            ListDirResult result = null;
+            try
             {
-                if (line.EndsWith('/'))
-                    _entries.Add(line.TrimEnd('/'));
+                result = await Task.Run(() =>
+                {
+                    var node = _client.Call("list_dir", new { path });
+                    return node == null ? null : JsonSerializer.Deserialize<ListDirResult>(node.ToJsonString());
+                }).ConfigureAwait(true);
             }
+            catch (Exception ex)
+            {
+                Models.Notification.Send(_host?.Host, $"Failed to list remote folder: {ex.Message}", true);
+            }
+
+            LoadingTip.IsVisible = false;
+
+            if (result == null)
+                return;
+
+            _current = string.IsNullOrEmpty(result.Path) ? path : result.Path;
+            TxtPath.Text = _current;
+
+            _entries.Clear();
+            foreach (var entry in result.Entries)
+                _entries.Add(new RemoteFolderEntry { Name = entry.Name, IsDir = entry.IsDir });
         }
+
+        private readonly Models.RemoteHost _host;
+        private readonly RpcClient _client;
+        private string _current = string.Empty;
+        private readonly ObservableCollection<RemoteFolderEntry> _entries = new();
     }
 }

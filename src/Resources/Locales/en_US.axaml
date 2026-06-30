@@ -628,11 +628,14 @@
   <x:String x:Key="Text.OpenLocalRepository" xml:space="preserve">Open Local Repository</x:String>
   <x:String x:Key="Text.OpenLocalRepository.Bookmark" xml:space="preserve">Bookmark:</x:String>
   <x:String x:Key="Text.OpenLocalRepository.Group" xml:space="preserve">Group:</x:String>
-  <x:String x:Key="Text.OpenLocalRepository.Path" xml:space="preserve">Folder:</x:String>
-  <x:String x:Key="Text.OpenLocalRepository.SSHRemote" xml:space="preserve">SSH Remote</x:String>
   <x:String x:Key="Text.OpenLocalRepository.Host" xml:space="preserve">Host:</x:String>
-  <x:String x:Key="Text.OpenLocalRepository.RemoteServerPath" xml:space="preserve">Remote SourceGit Path:</x:String>
-  <x:String x:Key="Text.OpenLocalRepository.RemotePath" xml:space="preserve">Remote Repository Path:</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.LocalHost" xml:space="preserve">Local Machine</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.Path" xml:space="preserve">Folder:</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.RemotePath" xml:space="preserve">Remote Folder:</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.RemotePath.Placeholder" xml:space="preserve">Path on the remote host</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.Invalid.LocalPath" xml:space="preserve">The given folder can not be found.</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.Invalid.RemotePath" xml:space="preserve">Remote folder is required.</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.Invalid.NotConnected" xml:space="preserve">The selected remote host is not connected.</x:String>
   <x:String x:Key="Text.Optional" xml:space="preserve">Optional.</x:String>
   <x:String x:Key="Text.PageTabBar.New" xml:space="preserve">Create New Tab</x:String>
   <x:String x:Key="Text.PageTabBar.Tab.Close" xml:space="preserve">Close Tab</x:String>
@@ -722,6 +725,18 @@
   <x:String x:Key="Text.Preferences.GPG.UserKey" xml:space="preserve">User Signing Key</x:String>
   <x:String x:Key="Text.Preferences.GPG.UserKey.Placeholder" xml:space="preserve">User's gpg signing key</x:String>
   <x:String x:Key="Text.Preferences.Integration" xml:space="preserve">INTEGRATION</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts" xml:space="preserve">REMOTE HOSTS</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Add" xml:space="preserve">Add host</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Connect" xml:space="preserve">Connect</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Disconnect" xml:space="preserve">Disconnect</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.FromConfig" xml:space="preserve">From SSH config</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Host" xml:space="preserve">Host (SSH)</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.HostPlaceholder" xml:space="preserve">user@host or a ~/.ssh/config alias</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Name" xml:space="preserve">Name</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Remove" xml:space="preserve">Remove host</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Reset" xml:space="preserve">Reset</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Status" xml:space="preserve">Status</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Test" xml:space="preserve">Test</x:String>
   <x:String x:Key="Text.Preferences.Shell" xml:space="preserve">SHELL/TERMINAL</x:String>
   <x:String x:Key="Text.Preferences.Shell.Args" xml:space="preserve">Arguments</x:String>
   <x:String x:Key="Text.Preferences.Shell.Args.Tip" xml:space="preserve">Please use '.' to indicate working directory</x:String>
@@ -779,6 +794,11 @@
   <x:String x:Key="Text.RemoteCM.Fetch" xml:space="preserve">Fetch</x:String>
   <x:String x:Key="Text.RemoteCM.OpenInBrowser" xml:space="preserve">Open In Browser</x:String>
   <x:String x:Key="Text.RemoteCM.Prune" xml:space="preserve">Prune</x:String>
+  <x:String x:Key="Text.RemoteFolderPicker" xml:space="preserve">Select Remote Folder</x:String>
+  <x:String x:Key="Text.RemoteFolderPicker.Home" xml:space="preserve">Home</x:String>
+  <x:String x:Key="Text.RemoteFolderPicker.Loading" xml:space="preserve">Loading...</x:String>
+  <x:String x:Key="Text.RemoteFolderPicker.PathPlaceholder" xml:space="preserve">Remote path</x:String>
+  <x:String x:Key="Text.RemoteFolderPicker.Up" xml:space="preserve">Up</x:String>
   <x:String x:Key="Text.RemoveWorktree" xml:space="preserve">Confirm to Remove Worktree</x:String>
   <x:String x:Key="Text.RemoveWorktree.Force" xml:space="preserve">Enable `--force` Option</x:String>
   <x:String x:Key="Text.RemoveWorktree.Target" xml:space="preserve">Target:</x:String>

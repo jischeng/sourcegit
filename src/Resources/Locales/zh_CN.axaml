@@ -631,11 +631,14 @@
   <x:String x:Key="Text.OpenLocalRepository" xml:space="preserve">打开本地仓库</x:String>
   <x:String x:Key="Text.OpenLocalRepository.Bookmark" xml:space="preserve">书签 ：</x:String>
   <x:String x:Key="Text.OpenLocalRepository.Group" xml:space="preserve">分组 ：</x:String>
-  <x:String x:Key="Text.OpenLocalRepository.Path" xml:space="preserve">仓库位置 ：</x:String>
-  <x:String x:Key="Text.OpenLocalRepository.SSHRemote" xml:space="preserve">SSH 远程</x:String>
   <x:String x:Key="Text.OpenLocalRepository.Host" xml:space="preserve">主机 ：</x:String>
-  <x:String x:Key="Text.OpenLocalRepository.RemoteServerPath" xml:space="preserve">远端 SourceGit 路径 ：</x:String>
-  <x:String x:Key="Text.OpenLocalRepository.RemotePath" xml:space="preserve">远端仓库路径 ：</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.LocalHost" xml:space="preserve">本机</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.Path" xml:space="preserve">仓库位置 ：</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.RemotePath" xml:space="preserve">远端文件夹 ：</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.RemotePath.Placeholder" xml:space="preserve">远程主机上的路径</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.Invalid.LocalPath" xml:space="preserve">找不到指定的文件夹。</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.Invalid.RemotePath" xml:space="preserve">请填写远端文件夹路径。</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.Invalid.NotConnected" xml:space="preserve">所选远程主机尚未连接。</x:String>
   <x:String x:Key="Text.Optional" xml:space="preserve">选填。</x:String>
   <x:String x:Key="Text.PageTabBar.New" xml:space="preserve">新建空白页</x:String>
   <x:String x:Key="Text.PageTabBar.Tab.Close" xml:space="preserve">关闭标签页</x:String>
@@ -725,6 +728,18 @@
   <x:String x:Key="Text.Preferences.GPG.UserKey" xml:space="preserve">用户签名KEY</x:String>
   <x:String x:Key="Text.Preferences.GPG.UserKey.Placeholder" xml:space="preserve">输入签名提交所使用的KEY</x:String>
   <x:String x:Key="Text.Preferences.Integration" xml:space="preserve">第三方工具集成</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts" xml:space="preserve">远程主机</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Add" xml:space="preserve">添加主机</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Connect" xml:space="preserve">连接</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Disconnect" xml:space="preserve">断开连接</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.FromConfig" xml:space="preserve">从 SSH 配置选择</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Host" xml:space="preserve">主机 (SSH)</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.HostPlaceholder" xml:space="preserve">user@host 或 ~/.ssh/config 中的别名</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Name" xml:space="preserve">名称</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Remove" xml:space="preserve">删除主机</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Reset" xml:space="preserve">重置</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Status" xml:space="preserve">状态</x:String>
+  <x:String x:Key="Text.Preferences.RemoteHosts.Test" xml:space="preserve">测试</x:String>
   <x:String x:Key="Text.Preferences.Shell" xml:space="preserve">终端/SHELL</x:String>
   <x:String x:Key="Text.Preferences.Shell.Args" xml:space="preserve">启动参数</x:String>
   <x:String x:Key="Text.Preferences.Shell.Args.Tip" xml:space="preserve">请使用 '.' 来指定工作目录</x:String>
@@ -782,6 +797,11 @@
   <x:String x:Key="Text.RemoteCM.Fetch" xml:space="preserve">拉取(fetch)更新</x:String>
   <x:String x:Key="Text.RemoteCM.OpenInBrowser" xml:space="preserve">在浏览器中打开</x:String>
   <x:String x:Key="Text.RemoteCM.Prune" xml:space="preserve">清理远程已删除分支</x:String>
+  <x:String x:Key="Text.RemoteFolderPicker" xml:space="preserve">选择远程文件夹</x:String>
+  <x:String x:Key="Text.RemoteFolderPicker.Home" xml:space="preserve">主目录</x:String>
+  <x:String x:Key="Text.RemoteFolderPicker.Loading" xml:space="preserve">加载中...</x:String>
+  <x:String x:Key="Text.RemoteFolderPicker.PathPlaceholder" xml:space="preserve">远程路径</x:String>
+  <x:String x:Key="Text.RemoteFolderPicker.Up" xml:space="preserve">上一级</x:String>
   <x:String x:Key="Text.RemoveWorktree" xml:space="preserve">移除工作树操作确认</x:String>
   <x:String x:Key="Text.RemoveWorktree.Force" xml:space="preserve">启用`--force`选项</x:String>
   <x:String x:Key="Text.RemoveWorktree.Target" xml:space="preserve">目标工作树 ：</x:String>

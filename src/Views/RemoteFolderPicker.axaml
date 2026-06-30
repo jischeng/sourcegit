@@ -1,23 +1,114 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="SourceGit.Views.RemoteFolderPicker"
-        Title="Select Remote Folder"
-        Width="560" Height="440"
-        WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="10">
-    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-      <TextBox Grid.Column="0" x:Name="txtPath" Margin="0,0,6,0" Watermark="remote path"/>
-      <Button Grid.Column="1" Click="OnGo">Go</Button>
+<v:ChromelessWindow xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:v="using:SourceGit.Views"
+                    mc:Ignorable="d" d:DesignWidth="560" d:DesignHeight="460"
+                    x:Class="SourceGit.Views.RemoteFolderPicker"
+                    x:Name="ThisControl"
+                    Icon="/App.ico"
+                    Title="{DynamicResource Text.RemoteFolderPicker}"
+                    Width="560" Height="460"
+                    CanResize="True"
+                    WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,*">
+    <!-- TitleBar -->
+    <Grid Grid.Row="0" Height="28" IsVisible="{Binding !#ThisControl.UseSystemWindowFrame}">
+      <Border Background="{DynamicResource Brush.TitleBar}"
+              BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Brush.Border0}"
+              PointerPressed="BeginMoveWindow"/>
+
+      <Path Width="14" Height="14"
+            Margin="10,0,0,0"
+            HorizontalAlignment="Left"
+            Data="{StaticResource Icons.Folder.Open}"
+            IsVisible="{OnPlatform True, macOS=False}"/>
+
+      <TextBlock Classes="bold"
+                 Text="{DynamicResource Text.RemoteFolderPicker}"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                 IsHitTestVisible="False"/>
+
+      <v:CaptionButtons HorizontalAlignment="Right"
+                        IsCloseButtonOnly="True"
+                        IsVisible="{OnPlatform True, macOS=False}"/>
     </Grid>
-    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6" Spacing="6">
-      <Button Click="OnUp">↑ Up</Button>
-      <Button Click="OnHome">Home</Button>
-    </StackPanel>
-    <ListBox Grid.Row="2" x:Name="lstEntries" DoubleTapped="OnDoubleTapped"/>
-    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0" Spacing="8">
-      <Button Click="OnConfirm" IsDefault="True">OK</Button>
-      <Button Click="OnCancel" IsCancel="True">Cancel</Button>
-    </StackPanel>
+
+    <!-- Body -->
+    <Grid Grid.Row="1" Margin="12" RowDefinitions="Auto,8,*,12,Auto">
+      <!-- Path bar -->
+      <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*">
+        <Button Grid.Column="0"
+                Classes="icon_button" Width="28" Height="28"
+                Click="OnGoUp"
+                ToolTip.Tip="{DynamicResource Text.RemoteFolderPicker.Up}">
+          <Path Width="14" Height="14" Data="{StaticResource Icons.Up}"/>
+        </Button>
+
+        <Button Grid.Column="1"
+                Classes="icon_button" Width="28" Height="28" Margin="2,0,6,0"
+                Click="OnGoHome"
+                ToolTip.Tip="{DynamicResource Text.RemoteFolderPicker.Home}">
+          <Path Width="14" Height="14" Data="{StaticResource Icons.Folder}"/>
+        </Button>
+
+        <TextBox Grid.Column="2"
+                 x:Name="TxtPath"
+                 Height="28" CornerRadius="3"
+                 VerticalContentAlignment="Center"
+                 Watermark="{DynamicResource Text.RemoteFolderPicker.PathPlaceholder}"
+                 KeyDown="OnPathKeyDown"/>
+      </Grid>
+
+      <!-- Entries -->
+      <Border Grid.Row="2"
+              BorderThickness="1" BorderBrush="{DynamicResource Brush.Border1}"
+              CornerRadius="3" Background="{DynamicResource Brush.Contents}">
+        <Grid>
+          <ListBox x:Name="LstEntries"
+                   Background="Transparent"
+                   SelectionMode="Single"
+                   DoubleTapped="OnEntryDoubleTapped">
+            <ListBox.Styles>
+              <Style Selector="ListBoxItem">
+                <Setter Property="MinHeight" Value="0"/>
+                <Setter Property="Height" Value="26"/>
+                <Setter Property="Padding" Value="6,2"/>
+              </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="v:RemoteFolderEntry">
+                <Grid ColumnDefinitions="Auto,*">
+                  <Path Grid.Column="0" Width="14" Height="14" VerticalAlignment="Center"
+                        Data="{StaticResource Icons.Folder}" Fill="{DynamicResource Brush.FG1}"
+                        IsVisible="{Binding IsDir}"/>
+                  <Path Grid.Column="0" Width="13" Height="13" VerticalAlignment="Center"
+                        Data="{StaticResource Icons.File}" Fill="{DynamicResource Brush.FG2}"
+                        IsVisible="{Binding !IsDir}"/>
+                  <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
+                             Text="{Binding Name}"/>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <TextBlock x:Name="LoadingTip"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Foreground="{DynamicResource Brush.FG2}"
+                     IsVisible="False"
+                     Text="{DynamicResource Text.RemoteFolderPicker.Loading}"/>
+        </Grid>
+      </Border>
+
+      <!-- Buttons -->
+      <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Classes="flat primary" Width="80" Height="30"
+                Click="OnConfirm" IsDefault="True"
+                Content="{DynamicResource Text.Sure}"/>
+        <Button Classes="flat" Width="80" Height="30"
+                Click="OnCancel" IsCancel="True"
+                Content="{DynamicResource Text.Cancel}"/>
+      </StackPanel>
+    </Grid>
   </Grid>
-</Window>
+</v:ChromelessWindow>

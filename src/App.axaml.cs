@@ -357,6 +357,13 @@ namespace SourceGit
             });
             Console.Out.WriteLine($"[selftest] hash-object --stdin stdout={stdinRS.StdOut.Trim()} ok={stdinRS.IsSuccess}");
 
+            // directory browsing (powers the remote folder picker)
+            var home = client.Call("home_dir", new { })?["path"]?.GetValue<string>();
+            Console.Out.WriteLine($"[selftest] home_dir={home}");
+            var listing = client.Call("list_dir", new { path = workingDir });
+            var entryCount = listing?["entries"]?.AsArray().Count ?? -1;
+            Console.Out.WriteLine($"[selftest] list_dir({workingDir}) path={listing?["path"]?.GetValue<string>()} entries={entryCount}");
+
             // watch (server FSW pushes watch_event notifications back to the client)
             var gotWatch = new ManualResetEventSlim(false);
             client.NotificationReceived += (method, pars) =>

@@ -139,6 +139,12 @@ namespace SourceGit.Remote
                         return JsonSerializer.SerializeToNode(new { path });
                     }
 
+                case "home_dir":
+                    return JsonSerializer.SerializeToNode(new { path = HomeDir() });
+
+                case "list_dir":
+                    return JsonSerializer.SerializeToNode(ListDir(TryGetString(p, "path")));
+
                 case "watch_start":
                     StartWatch(GetString(p, "path"));
                     return JsonSerializer.SerializeToNode(new { });
@@ -193,6 +199,73 @@ namespace SourceGit.Remote
             await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
 
             return new ExecGitResult { Stdout = stdout, Stderr = stderr, ExitCode = proc.ExitCode };
+        }
+
+        private static string HomeDir()
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return string.IsNullOrEmpty(home) ? "/" : home.Replace('\\', '/');
+        }
+
+        /// <summary>
+        /// List the sub-entries of a directory on the host so the client can browse for a
+        /// repository path. Expands <c>~</c>/empty to the home directory, resolves to an
+        /// absolute path and returns directories first. Entries that cannot be stat'd are
+        /// skipped rather than aborting the whole listing.
+        /// </summary>
+        private static ListDirResult ListDir(string path)
+        {
+            var resolved = ResolvePath(path);
+            var result = new ListDirResult { Path = resolved };
+
+            try
+            {
+                foreach (var dir in Directory.EnumerateDirectories(resolved))
+                {
+                    var name = Path.GetFileName(dir.TrimEnd('/'));
+                    if (!string.IsNullOrEmpty(name))
+                        result.Entries.Add(new ListDirEntry { Name = name, IsDir = true });
+                }
+
+                foreach (var file in Directory.EnumerateFiles(resolved))
+                {
+                    var name = Path.GetFileName(file);
+                    if (!string.IsNullOrEmpty(name))
+                        result.Entries.Add(new ListDirEntry { Name = name, IsDir = false });
+                }
+            }
+            catch
+            {
+                // Return whatever we managed to collect (possibly empty) for an unreadable dir.
+            }
+
+            result.Entries.Sort((l, r) =>
+            {
+                if (l.IsDir != r.IsDir)
+                    return l.IsDir ? -1 : 1;
+                return string.Compare(l.Name, r.Name, StringComparison.OrdinalIgnoreCase);
+            });
+
+            return result;
+        }
+
+        private static string ResolvePath(string path)
+        {
+            var home = HomeDir();
+            if (string.IsNullOrWhiteSpace(path) || path == "~" || path == ".")
+                return home;
+
+            if (path.StartsWith("~/", StringComparison.Ordinal))
+                path = home.TrimEnd('/') + path.Substring(1);
+
+            try
+            {
+                return Path.GetFullPath(path).Replace('\\', '/');
+            }
+            catch
+            {
+                return path.Replace('\\', '/');
+            }
         }
 
         private void StartWatch(string path)

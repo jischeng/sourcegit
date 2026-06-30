@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
@@ -55,5 +56,19 @@ namespace SourceGit.Remote
         [JsonPropertyName("stdout")] public string Stdout { get; set; }
         [JsonPropertyName("stderr")] public string Stderr { get; set; }
         [JsonPropertyName("exit_code")] public int ExitCode { get; set; }
+    }
+
+    /// <summary>One entry returned by the <c>list_dir</c> method.</summary>
+    public class ListDirEntry
+    {
+        [JsonPropertyName("name")] public string Name { get; set; }
+        [JsonPropertyName("is_dir")] public bool IsDir { get; set; }
+    }
+
+    /// <summary>Result of the <c>list_dir</c> method.</summary>
+    public class ListDirResult
+    {
+        [JsonPropertyName("path")] public string Path { get; set; }
+        [JsonPropertyName("entries")] public List<ListDirEntry> Entries { get; set; } = new();
     }
 }

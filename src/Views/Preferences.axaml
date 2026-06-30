@@ -936,6 +936,142 @@
             </ContentControl>
           </Grid>
         </TabItem>
+
+        <TabItem>
+          <TabItem.Header>
+            <TextBlock Classes="tab_header" Text="{DynamicResource Text.Preferences.RemoteHosts}"/>
+          </TabItem.Header>
+
+          <Grid Margin="0,8,0,16" MinHeight="400">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="220"/>
+              <ColumnDefinition Width="*" MaxWidth="420"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    BorderThickness="1" BorderBrush="{DynamicResource Brush.Border2}"
+                    Background="{DynamicResource Brush.Contents}">
+              <Grid RowDefinitions="*,1,Auto">
+                <ListBox Grid.Row="0"
+                         Background="Transparent"
+                         ItemsSource="{Binding RemoteHosts}"
+                         SelectedItem="{Binding #ThisControl.SelectedRemoteHost, Mode=TwoWay}"
+                         SelectionMode="Single">
+                  <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                      <Setter Property="MinHeight" Value="0"/>
+                      <Setter Property="Height" Value="30"/>
+                      <Setter Property="Padding" Value="4,2"/>
+                    </Style>
+                  </ListBox.Styles>
+
+                  <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Vertical"/>
+                    </ItemsPanelTemplate>
+                  </ListBox.ItemsPanel>
+
+                  <ListBox.ItemTemplate>
+                    <DataTemplate DataType="m:RemoteHost">
+                      <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+                        <Ellipse Grid.Column="0" Width="9" Height="9" VerticalAlignment="Center" Fill="{Binding StatusBrush}"/>
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0" Orientation="Vertical" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontWeight="{Binding IsConnected, Converter={x:Static c:BoolConverters.IsBoldToFontWeight}}"/>
+                          <TextBlock Text="{Binding Host}" FontSize="10" Foreground="{DynamicResource Brush.FG2}" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource Brush.Border2}" HorizontalAlignment="Stretch" VerticalAlignment="Bottom"/>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Background="{DynamicResource Brush.ToolBar}">
+                  <Button Classes="icon_button" Width="28" Height="28" Click="OnAddRemoteHost" ToolTip.Tip="{DynamicResource Text.Preferences.RemoteHosts.Add}">
+                    <Path Width="14" Height="14" Data="{StaticResource Icons.Plus}"/>
+                  </Button>
+
+                  <Button Classes="icon_button" Width="28" Height="28" Click="OnRemoveSelectedRemoteHost" ToolTip.Tip="{DynamicResource Text.Preferences.RemoteHosts.Remove}">
+                    <Path Width="14" Height="14" Data="{StaticResource Icons.Minus}"/>
+                  </Button>
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <ContentControl Grid.Column="1" Margin="16,0,0,0">
+              <ContentControl.Content>
+                <Binding Path="#ThisControl.SelectedRemoteHost">
+                  <Binding.TargetNullValue>
+                    <Path Width="64" Height="64"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Fill="{DynamicResource Brush.FG2}"
+                          Data="{StaticResource Icons.Remote}"/>
+                  </Binding.TargetNullValue>
+                </Binding>
+              </ContentControl.Content>
+
+              <ContentControl.DataTemplates>
+                <DataTemplate DataType="m:RemoteHost">
+                  <StackPanel Orientation="Vertical">
+                    <TextBlock Text="{DynamicResource Text.Preferences.RemoteHosts.Name}"/>
+                    <TextBox Margin="0,4,0,0" CornerRadius="3" Height="28" Text="{Binding Name, Mode=TwoWay}"/>
+
+                    <TextBlock Margin="0,12,0,0" Text="{DynamicResource Text.Preferences.RemoteHosts.Host}"/>
+                    <Grid Margin="0,4,0,0" ColumnDefinitions="*,8,150">
+                      <TextBox Grid.Column="0"
+                               CornerRadius="3" Height="28"
+                               Text="{Binding Host, Mode=TwoWay}"
+                               Watermark="{DynamicResource Text.Preferences.RemoteHosts.HostPlaceholder}"/>
+                      <ComboBox Grid.Column="2"
+                                Height="28" Padding="8,0"
+                                HorizontalAlignment="Stretch"
+                                ItemsSource="{Binding #ThisControl.SshConfigHosts}"
+                                SelectionChanged="OnPickSshConfigHost"
+                                PlaceholderText="{DynamicResource Text.Preferences.RemoteHosts.FromConfig}"/>
+                    </Grid>
+
+                    <TextBlock Margin="0,12,0,0" Text="{DynamicResource Text.Preferences.RemoteHosts.Status}"/>
+                    <Border Margin="0,4,0,0" Height="28"
+                            BorderThickness="1" BorderBrush="{DynamicResource Brush.Border1}"
+                            CornerRadius="3" Background="{DynamicResource Brush.Contents}">
+                      <StackPanel Orientation="Horizontal" Margin="8,0" VerticalAlignment="Center">
+                        <Ellipse Width="9" Height="9" VerticalAlignment="Center" Fill="{Binding StatusBrush}"/>
+                        <TextBlock Margin="8,0,0,0" VerticalAlignment="Center"
+                                   Text="{Binding StatusMessage}" Foreground="{DynamicResource Brush.FG2}"
+                                   TextTrimming="CharacterEllipsis"/>
+                      </StackPanel>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0" Spacing="8">
+                      <Button Classes="flat" Height="28" MinWidth="76"
+                              Click="OnTestRemoteHost"
+                              IsVisible="{Binding !IsConnected}"
+                              IsEnabled="{Binding !IsBusy}"
+                              Content="{DynamicResource Text.Preferences.RemoteHosts.Test}"/>
+
+                      <Button Classes="flat primary" Height="28" MinWidth="76"
+                              Click="OnConnectRemoteHost"
+                              IsVisible="{Binding !IsConnected}"
+                              IsEnabled="{Binding !IsBusy}"
+                              Content="{DynamicResource Text.Preferences.RemoteHosts.Connect}"/>
+
+                      <Button Classes="flat" Height="28" MinWidth="76"
+                              Click="OnResetRemoteHost"
+                              IsVisible="{Binding IsConnected}"
+                              Content="{DynamicResource Text.Preferences.RemoteHosts.Reset}"/>
+
+                      <Button Classes="flat" Height="28" MinWidth="76"
+                              Click="OnDisconnectRemoteHost"
+                              IsVisible="{Binding IsConnected}"
+                              Content="{DynamicResource Text.Preferences.RemoteHosts.Disconnect}"/>
+                    </StackPanel>
+                  </StackPanel>
+                </DataTemplate>
+              </ContentControl.DataTemplates>
+            </ContentControl>
+          </Grid>
+        </TabItem>
       </TabControl>
     </Border>
   </Grid>

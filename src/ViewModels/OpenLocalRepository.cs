@@ -1,59 +1,57 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Threading.Tasks;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Media;
-using Avalonia.Threading;
 
-using SourceGit.Remote;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 
 namespace SourceGit.ViewModels
 {
+    /// <summary>
+    /// One entry in the "Open Local Repository" host dropdown. <see cref="Host"/> is
+    /// <c>null</c> for the local machine; otherwise it is a connected remote host.
+    /// </summary>
+    public class RepositoryHostChoice
+    {
+        public string Display { get; init; } = string.Empty;
+        public Models.RemoteHost Host { get; init; }
+        public bool IsRemote => Host != null;
+    }
+
+    /// <summary>
+    /// "Open Local Repository" dialog. A host dropdown at the top selects where the
+    /// repository lives: the local machine, or any currently-connected remote host
+    /// (connected from Preferences → Remote Hosts). Apart from the machine, the workflow is
+    /// identical — folder, group and bookmark — and for remote hosts the folder is chosen
+    /// with a browser that runs over the host's existing connection.
+    /// </summary>
     public class OpenLocalRepository : Popup
     {
-        [Required(ErrorMessage = "Repository folder is required")]
-        [CustomValidation(typeof(OpenLocalRepository), nameof(ValidateRepoPath))]
-        public string RepoPath
-        {
-            get => _repoPath;
-            set => SetProperty(ref _repoPath, value, true);
-        }
+        public List<RepositoryHostChoice> AvailableHosts { get; }
 
-        private bool _isSSHRemote;
-        public bool IsSSHRemote
+        public RepositoryHostChoice SelectedHost
         {
-            get => _isSSHRemote;
-            set => SetProperty(ref _isSSHRemote, value);
-        }
-
-        private string _sshHost = string.Empty;
-        public string SSHHost
-        {
-            get => _sshHost;
+            get => _selectedHost;
             set
             {
-                if (SetProperty(ref _sshHost, value))
-                    _ = TestConnectionAsync();
+                if (SetProperty(ref _selectedHost, value))
+                    OnPropertyChanged(nameof(IsRemote));
             }
         }
 
-        private string _remotePath = string.Empty;
+        public bool IsRemote => _selectedHost?.IsRemote ?? false;
+
+        public string RepoPath
+        {
+            get => _repoPath;
+            set => SetProperty(ref _repoPath, value);
+        }
+
         public string RemotePath
         {
             get => _remotePath;
             set => SetProperty(ref _remotePath, value);
-        }
-
-        /// <summary>Host aliases parsed from ~/.ssh/config.</summary>
-        public List<string> SshHosts { get; } = SshConfigParser.GetHosts();
-
-        private IBrush _connectionStatusBrush = Brushes.Gray;
-        public IBrush ConnectionStatusBrush
-        {
-            get => _connectionStatusBrush;
-            set => SetProperty(ref _connectionStatusBrush, value);
         }
 
         public List<RepositoryNode> Groups
@@ -77,23 +75,37 @@ namespace SourceGit.ViewModels
         {
             _pageId = pageId;
 
+            AvailableHosts = new List<RepositoryHostChoice>
+            {
+                new RepositoryHostChoice { Display = App.Text("OpenLocalRepository.LocalHost"), Host = null },
+            };
+
+            foreach (var host in Preferences.Instance.RemoteHosts)
+            {
+                if (host.IsConnected)
+                    AvailableHosts.Add(new RepositoryHostChoice { Display = string.IsNullOrEmpty(host.Name) ? host.Host : host.Name, Host = host });
+            }
+
+            _selectedHost = AvailableHosts[0];
+
             Groups = new List<RepositoryNode>();
             Groups.Add(new RepositoryNode { Name = "No Group (Uncategorized)", Id = string.Empty });
             Group = group ?? Groups[0];
             CollectGroups(Groups, Preferences.Instance.RepositoryNodes);
         }
 
-        public static ValidationResult ValidateRepoPath(string folder, ValidationContext _)
-        {
-            if (!Directory.Exists(folder))
-                return new ValidationResult("Given path can NOT be found");
-            return ValidationResult.Success;
-        }
-
         public override async Task<bool> Sure()
         {
-            if (IsSSHRemote)
-                return await OpenRemoteAsync();
+            return IsRemote ? await OpenRemoteAsync() : await OpenLocalAsync();
+        }
+
+        private async Task<bool> OpenLocalAsync()
+        {
+            if (string.IsNullOrWhiteSpace(_repoPath) || !Directory.Exists(_repoPath))
+            {
+                Models.Notification.Send(null, App.Text("OpenLocalRepository.Invalid.LocalPath"), true);
+                return false;
+            }
 
             var isBare = await new Commands.IsBareRepository(_repoPath).GetResultAsync();
             var parent = _group is { Id: not "" } ? _group : null;
@@ -129,61 +141,59 @@ namespace SourceGit.ViewModels
             return true;
         }
 
-        private async Task<bool> OpenRemoteAsync()
+        private Task<bool> OpenRemoteAsync()
         {
-            var host = new Models.RemoteHost
+            var host = _selectedHost?.Host;
+            if (host == null || !host.IsConnected)
             {
-                Name = SSHHost,
-                Host = SSHHost,
-            };
+                Models.Notification.Send(null, App.Text("OpenLocalRepository.Invalid.NotConnected"), true);
+                return Task.FromResult(false);
+            }
+
+            if (string.IsNullOrWhiteSpace(_remotePath))
+            {
+                Models.Notification.Send(null, App.Text("OpenLocalRepository.Invalid.RemotePath"), true);
+                return Task.FromResult(false);
+            }
 
             var parent = _group is { Id: not "" } ? _group : null;
-            var node = Preferences.Instance.FindOrAddNodeByRepositoryPath(RemotePath, parent, true);
+            var node = Preferences.Instance.FindOrAddNodeByRepositoryPath(_remotePath.Trim(), parent, true, save: false);
             node.IsRemote = true;
             node.RemoteHost = host;
             node.Bookmark = _bookmark;
-            await node.UpdateStatusAsync(false, null);
+
+            // Persist after IsRemote/RemoteHost are set so the node reopens as remote next time.
+            Preferences.Instance.Save();
+
             Welcome.Instance.Refresh();
             node.Open();
-            return true;
+            return Task.FromResult(true);
         }
 
         /// <summary>
-        /// Open the remote folder picker so the user can browse directories on the SSH host
-        /// and pick the repository path instead of typing it.
+        /// Open the remote folder browser so the user can navigate directories on the host
+        /// (over its existing connection) and pick the repository path.
         /// </summary>
         public void BrowseRemotePath()
         {
-            if (string.IsNullOrEmpty(SSHHost))
+            var host = _selectedHost?.Host;
+            var session = Remote.RemoteHostManager.Instance.GetConnectedSession(host);
+            if (session == null)
+            {
+                Models.Notification.Send(null, App.Text("OpenLocalRepository.Invalid.NotConnected"), true);
                 return;
+            }
 
             var owner = (App.Current.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
             if (owner == null)
                 return;
 
-            var picker = new Views.RemoteFolderPicker(SSHHost, RemotePath);
+            var picker = new Views.RemoteFolderPicker(host, session.Client, _remotePath);
             picker.ShowDialog<bool>(owner).ContinueWith(t =>
             {
-                if (t.IsCompletedSuccessfully && t.Result)
+                if (t.IsCompletedSuccessfully && t.Result && !string.IsNullOrEmpty(picker.SelectedPath))
                     Dispatcher.UIThread.Post(() => RemotePath = picker.SelectedPath);
             });
-        }
-
-        private async Task TestConnectionAsync()
-        {
-            if (string.IsNullOrEmpty(SSHHost))
-            {
-                ConnectionStatusBrush = Brushes.Gray;
-                return;
-            }
-
-            ConnectionStatusBrush = Brushes.Yellow;
-            var host = SSHHost;
-            var (stdout, exit) = await Task.Run(() => SshExec.Run(host, "echo OK")).ConfigureAwait(true);
-            if (host != SSHHost)
-                return; // selection changed meanwhile
-
-            ConnectionStatusBrush = (exit == 0 && stdout.Trim() == "OK") ? Brushes.Green : Brushes.Red;
         }
 
         private void CollectGroups(List<RepositoryNode> outs, List<RepositoryNode> collections)
@@ -200,6 +210,8 @@ namespace SourceGit.ViewModels
 
         private string _pageId = string.Empty;
         private string _repoPath = string.Empty;
+        private string _remotePath = string.Empty;
+        private RepositoryHostChoice _selectedHost = null;
         private RepositoryNode _group = null;
         private int _bookmark = 0;
     }

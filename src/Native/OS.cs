@@ -190,12 +190,18 @@ namespace SourceGit.Native
         }
 
         /// <summary>
-        /// Path to the bundled Linux remote-server binary inside the app bundle
-        /// (Contents/Resources/remote-server/linux-x64/sourcegit). Returns null when not
-        /// running from a .app bundle (e.g. dev builds) so the caller can fall back.
+        /// Path to the remote-server binary that gets deployed to the host. Prefers the
+        /// <c>SOURCEGIT_REMOTE_SERVER</c> environment override (handy for development, where
+        /// the app is not packaged), then falls back to the bundled Linux binary inside the
+        /// app bundle (Contents/Resources/remote-server/linux-x64/sourcegit). Returns null
+        /// when neither is available so the caller can report a clear error.
         /// </summary>
         public static string GetBundledRemoteServerPath()
         {
+            var overridePath = Environment.GetEnvironmentVariable("SOURCEGIT_REMOTE_SERVER");
+            if (!string.IsNullOrEmpty(overridePath) && File.Exists(overridePath))
+                return overridePath;
+
             var candidate = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Resources", "remote-server", "linux-x64", "sourcegit"));
             return File.Exists(candidate) ? candidate : null;
         }

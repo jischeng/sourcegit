@@ -54,6 +54,11 @@ namespace SourceGit.Remote
         {
             _client.NotificationReceived -= OnNotification;
             _timer.Dispose();
+
+            // Stop the server-side watcher for this path. The connection itself is shared and
+            // owned by the host session, so it stays alive for other repositories.
+            try { _client.Call("watch_stop", new { path = _repo.FullPath }); }
+            catch { /* connection may already be gone; ignore */ }
         }
 
         private readonly Repository _repo;
