@@ -26,11 +26,6 @@ namespace SourceGit.ViewModels
             get; set;
         } = string.Empty;
 
-        public string RemoteServerPath
-        {
-            get; set;
-        } = "sourcegit";
-
         public string RemotePath
         {
             get; set;
@@ -115,7 +110,6 @@ namespace SourceGit.ViewModels
             {
                 Name = SSHHost,
                 Host = SSHHost,
-                RemoteServerPath = string.IsNullOrEmpty(RemoteServerPath) ? "sourcegit" : RemoteServerPath,
             };
 
             var parent = _group is { Id: not "" } ? _group : null;

@@ -15,9 +15,7 @@ namespace SourceGit.Remote
     }
 
     /// <summary>
-    /// Connection to a server launched as a local child process (e.g.
-    /// <c>dotnet SourceGit.dll --remote-server</c>). Mainly used for testing and for a
-    /// possible "local server" mode; real remote repositories use <see cref="SshConnection"/>.
+    /// Connection to a server launched as a local child process (testing / local mode).
     /// </summary>
     public sealed class LocalProcessConnection : IConnection
     {
@@ -54,10 +52,9 @@ namespace SourceGit.Remote
     }
 
     /// <summary>
-    /// Connection to a remote server reached over SSH. Launches
-    /// <c>ssh &lt;user&gt;@&lt;host&gt; &lt;remote-sourcegit&gt; --remote-server</c> and pipes
-    /// JSON-RPC over the SSH channel's stdin/stdout. Authentication is non-interactive
-    /// (BatchMode) via an identity file or the SSH agent.
+    /// Connection to a remote server reached over SSH. Reuses the user's ~/.ssh/config:
+    /// <paramref name="host"/> may be a config alias carrying ProxyJump (jump hosts /
+    /// multi-hop), identity, agent, port and passwordless auth.
     /// </summary>
     public sealed class SshConnection : IConnection
     {
@@ -65,11 +62,6 @@ namespace SourceGit.Remote
 
         public SshConnection(string host, string remoteServerCommand)
         {
-            // Reuse the user's ~/.ssh/config: `host` may be a config alias carrying
-            // ProxyJump (jump hosts / multi-hop), IdentityAgent/identity, port, user, etc.
-            // We only force no-tty and first-time host key acceptance; everything else
-            // comes from config so passwordless auth, jump hosts and multi-hop all work
-            // as the user already configured them.
             var args = $"-T -o StrictHostKeyChecking=accept-new {host} {remoteServerCommand}";
 
             var psi = new ProcessStartInfo("ssh", args)
@@ -93,6 +85,74 @@ namespace SourceGit.Remote
         {
             try { if (!_proc.HasExited) _proc.Kill(); } catch { }
             _proc.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Run a one-shot command on the remote host over SSH (non-interactive: BatchMode so it
+    /// never prompts for a password — relies on the ssh config's key/agent). Used to probe
+    /// for the deployed server binary and to mkdir/chmod around the upload.
+    /// </summary>
+    public static class SshExec
+    {
+        public static (string stdout, int exitCode) Run(string host, string command)
+        {
+            var args = $"-T -o BatchMode=yes -o StrictHostKeyChecking=accept-new {host} {command}";
+            var psi = new ProcessStartInfo("ssh", args)
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+
+            try
+            {
+                using var p = Process.Start(psi);
+                if (p == null)
+                    return (string.Empty, -1);
+
+                var stdout = p.StandardOutput.ReadToEnd();
+                p.WaitForExit();
+                return (stdout, p.ExitCode);
+            }
+            catch
+            {
+                return (string.Empty, -1);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Upload a local file to the remote host via scp, reusing the same host alias so
+    /// ~/.ssh/config (ProxyJump/agent/key) applies. Non-interactive (BatchMode).
+    /// </summary>
+    public static class ScpUpload
+    {
+        public static int Upload(string host, string localFile, string remotePath)
+        {
+            var args = $"-o BatchMode=yes -o StrictHostKeyChecking=accept-new \"{localFile}\" {host}:{remotePath}";
+            var psi = new ProcessStartInfo("scp", args)
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+
+            try
+            {
+                using var p = Process.Start(psi);
+                if (p == null)
+                    return -1;
+
+                p.WaitForExit();
+                return p.ExitCode;
+            }
+            catch
+            {
+                return -1;
+            }
         }
     }
 }

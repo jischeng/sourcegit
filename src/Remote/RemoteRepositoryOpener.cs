@@ -7,27 +7,25 @@ using SourceGit.ViewModels;
 namespace SourceGit.Remote
 {
     /// <summary>
-    /// Opens a repository that lives on a remote host. Establishes the SSH connection,
-    /// registers a <see cref="RemoteCommandRunner"/> for the remote path (so all
-    /// <c>Commands.XXX(remotePath,...)</c> reach the server), probes isBare/gitDir via RPC,
-    /// and constructs the <see cref="Repository"/>.
+    /// Opens a repository that lives on a remote host. Auto-deploys the server binary to
+    /// <c>~/.sourcegit-server/sourcegit</c> on the remote (probe → upload if missing → chmod),
+    /// then establishes the SSH connection, registers a <see cref="RemoteCommandRunner"/>,
+    /// probes isBare/gitDir via RPC, and constructs the <see cref="Repository"/>.
     /// <para>
-    /// Probing is done with <c>git rev-parse</c> over RPC on purpose: the local
-    /// <c>IsBareRepository</c>/<c>GetRepositoryGitDir</c> helpers short-circuit on local
-    /// <c>Directory.Exists</c>/<c>File.Exists</c> checks that are meaningless for a path
-    /// that does not exist on this machine.
+    /// Probe/upload/chmod reuse the same ssh host alias so ~/.ssh/config (ProxyJump/jump
+    /// hosts, agent, identity, passwordless auth) applies throughout.
     /// </para>
     /// </summary>
     public static class RemoteRepositoryOpener
     {
-        /// <summary>
-        /// Open <paramref name="remotePath"/> on <paramref name="host"/>. The returned
-        /// Repository owns the SSH connection; disposing it on close releases the process
-        /// and unregisters the runner.
-        /// </summary>
+        // Fixed command that launches the auto-deployed server on the remote host.
+        private const string RemoteServerCommand = "~/.sourcegit-server/sourcegit --remote-server";
+
         public static Repository Open(Models.RemoteHost host, string remotePath)
         {
-            var conn = new SshConnection(host.Host, $"{host.RemoteServerPath} --remote-server");
+            EnsureRemoteServer(host.Host);
+
+            var conn = new SshConnection(host.Host, RemoteServerCommand);
             var client = new RpcClient(conn.Input, conn.Output);
             var runner = new RemoteCommandRunner(client);
 
@@ -62,6 +60,33 @@ namespace SourceGit.Remote
             repo.RemoteWatcher = new RemoteWatcher(repo, client);
             client.Call("watch_start", new { path = remotePath });
             return repo;
+        }
+
+        /// <summary>
+        /// Ensure the server binary exists and is executable on the remote host. Probes first
+        /// so the common case (already deployed) needs no upload; uploads the bundled binary
+        /// if missing. Throws on failure.
+        /// </summary>
+        private static void EnsureRemoteServer(string host)
+        {
+            var probe = SshExec.Run(host, "test -x ~/.sourcegit-server/sourcegit && echo OK");
+            if (probe.stdout.Trim() == "OK")
+                return;
+
+            var local = Native.OS.GetBundledRemoteServerPath();
+            if (string.IsNullOrEmpty(local))
+                throw new Exception("bundled remote server binary not found; please run from the installed app");
+
+            var mkdir = SshExec.Run(host, "mkdir -p ~/.sourcegit-server");
+            if (mkdir.exitCode != 0)
+                throw new Exception($"failed to create ~/.sourcegit-server on '{host}' (exit {mkdir.exitCode})");
+
+            if (ScpUpload.Upload(host, local, "~/.sourcegit-server/sourcegit") != 0)
+                throw new Exception($"failed to upload server binary to '{host}'");
+
+            var chmod = SshExec.Run(host, "chmod +x ~/.sourcegit-server/sourcegit");
+            if (chmod.exitCode != 0)
+                throw new Exception($"failed to chmod server binary on '{host}' (exit {chmod.exitCode})");
         }
     }
 }

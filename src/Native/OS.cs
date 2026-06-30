@@ -189,6 +189,17 @@ namespace SourceGit.Native
             return _backend.FindGitExecutable();
         }
 
+        /// <summary>
+        /// Path to the bundled Linux remote-server binary inside the app bundle
+        /// (Contents/Resources/remote-server/linux-x64/sourcegit). Returns null when not
+        /// running from a .app bundle (e.g. dev builds) so the caller can fall back.
+        /// </summary>
+        public static string GetBundledRemoteServerPath()
+        {
+            var candidate = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Resources", "remote-server", "linux-x64", "sourcegit"));
+            return File.Exists(candidate) ? candidate : null;
+        }
+
         public static bool TestShellOrTerminal(Models.ShellOrTerminal shell)
         {
             return !string.IsNullOrEmpty(_backend.FindTerminal(shell));

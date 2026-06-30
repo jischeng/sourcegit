@@ -67,7 +67,7 @@
                           Bookmark="{Binding Bookmark, Mode=TwoWay}"/>
     </Grid>
 
-    <Grid Margin="8,8,0,0" RowDefinitions="32,32,32,32,32" ColumnDefinitions="Auto,*"
+    <Grid Margin="8,8,0,0" RowDefinitions="32,32,32,32" ColumnDefinitions="Auto,*"
           IsVisible="{Binding IsSSHRemote}">
       <TextBlock Grid.Row="0" Grid.Column="0"
                  HorizontalAlignment="Right"
@@ -81,26 +81,17 @@
       <TextBlock Grid.Row="1" Grid.Column="0"
                  HorizontalAlignment="Right"
                  Margin="0,0,8,0"
-                 Text="{DynamicResource Text.OpenLocalRepository.RemoteServerPath}"/>
-      <TextBox Grid.Row="1" Grid.Column="1"
-               Height="28"
-               CornerRadius="3"
-               Text="{Binding RemoteServerPath, Mode=TwoWay}"/>
-
-      <TextBlock Grid.Row="2" Grid.Column="0"
-                 HorizontalAlignment="Right"
-                 Margin="0,0,8,0"
                  Text="{DynamicResource Text.OpenLocalRepository.RemotePath}"/>
-      <TextBox Grid.Row="2" Grid.Column="1"
+      <TextBox Grid.Row="1" Grid.Column="1"
                Height="28"
                CornerRadius="3"
                Text="{Binding RemotePath, Mode=TwoWay}"/>
 
-      <TextBlock Grid.Row="3" Grid.Column="0"
+      <TextBlock Grid.Row="2" Grid.Column="0"
                  HorizontalAlignment="Right"
                  Margin="0,0,8,0"
                  Text="{DynamicResource Text.OpenLocalRepository.Group}"/>
-      <ComboBox Grid.Row="3" Grid.Column="1"
+      <ComboBox Grid.Row="2" Grid.Column="1"
                 Height="28" Padding="8,0"
                 VerticalAlignment="Center" HorizontalAlignment="Stretch"
                 ItemsSource="{Binding Groups}"
@@ -112,11 +103,11 @@
         </ComboBox.ItemTemplate>
       </ComboBox>
 
-      <TextBlock Grid.Row="4" Grid.Column="0"
+      <TextBlock Grid.Row="3" Grid.Column="0"
                  HorizontalAlignment="Right"
                  Margin="0,0,8,0"
                  Text="{DynamicResource Text.OpenLocalRepository.Bookmark}"/>
-      <v:BookmarkSelector Grid.Row="4" Grid.Column="1"
+      <v:BookmarkSelector Grid.Row="3" Grid.Column="1"
                           HorizontalAlignment="Left" VerticalAlignment="Center"
                           Bookmark="{Binding Bookmark, Mode=TwoWay}"/>
     </Grid>
