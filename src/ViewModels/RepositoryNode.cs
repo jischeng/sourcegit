@@ -135,14 +135,14 @@ namespace SourceGit.ViewModels
 
         public void OpenInFileManager()
         {
-            if (!IsRepository)
+            if (!IsRepository || IsRemote)
                 return;
             Native.OS.OpenInFileManager(_id);
         }
 
         public void OpenTerminal()
         {
-            if (!IsRepository)
+            if (!IsRepository || IsRemote)
                 return;
             Native.OS.OpenTerminal(_id);
         }

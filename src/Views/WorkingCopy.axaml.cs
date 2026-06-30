@@ -321,7 +321,7 @@ namespace SourceGit.Views
                 var explore = new MenuItem();
                 explore.Header = App.Text("RevealFile");
                 explore.Icon = this.CreateMenuIcon("Icons.Explore");
-                explore.IsEnabled = File.Exists(path) || Directory.Exists(path);
+                explore.IsEnabled = !repo.IsRemote && (File.Exists(path) || Directory.Exists(path));
                 explore.Click += (_, e) =>
                 {
                     var target = hasSelectedFolder ? Native.OS.GetAbsPath(repo.FullPath, selectedSingleFolder) : path;
@@ -815,7 +815,7 @@ namespace SourceGit.Views
                     var explore = new MenuItem();
                     explore.Header = App.Text("RevealFile");
                     explore.Icon = this.CreateMenuIcon("Icons.Explore");
-                    explore.IsEnabled = Directory.Exists(dir);
+                    explore.IsEnabled = !repo.IsRemote && Directory.Exists(dir);
                     explore.Click += (_, e) =>
                     {
                         Native.OS.OpenInFileManager(dir);
@@ -1008,7 +1008,7 @@ namespace SourceGit.Views
                 };
 
                 var explore = new MenuItem();
-                explore.IsEnabled = File.Exists(path) || Directory.Exists(path);
+                explore.IsEnabled = !repo.IsRemote && (File.Exists(path) || Directory.Exists(path));
                 explore.Header = App.Text("RevealFile");
                 explore.Icon = this.CreateMenuIcon("Icons.Explore");
                 explore.Click += (_, e) =>
@@ -1223,7 +1223,7 @@ namespace SourceGit.Views
                 {
                     var dir = Path.Combine(repo.FullPath, selectedSingleFolder);
                     var explore = new MenuItem();
-                    explore.IsEnabled = Directory.Exists(dir);
+                    explore.IsEnabled = !repo.IsRemote && Directory.Exists(dir);
                     explore.Header = App.Text("RevealFile");
                     explore.Icon = this.CreateMenuIcon("Icons.Explore");
                     explore.Click += (_, e) =>

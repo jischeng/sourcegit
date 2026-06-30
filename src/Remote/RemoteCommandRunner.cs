@@ -51,7 +51,7 @@ namespace SourceGit.Remote
 
         public void StartDetached(Command.RunSpec spec)
         {
-            throw new NotSupportedException("Remote detached start is not supported (difftool must run locally)");
+            throw new NotSupportedException("External diff/merge tools are not supported for remote repositories");
         }
 
         public Command.Result ReadToEnd(Command.RunSpec spec)
