@@ -22,6 +22,10 @@
             <v:WelcomeToolbar/>
           </DataTemplate>
 
+          <DataTemplate DataType="vm:LoadingRemoteRepository">
+            <TextBlock Margin="12,0" VerticalAlignment="Center" Text="{Binding Message}"/>
+          </DataTemplate>
+
           <DataTemplate DataType="vm:Repository">
             <v:RepositoryToolbar/>
           </DataTemplate>
@@ -31,10 +35,17 @@
 
     <!-- Body -->
     <Border Grid.Row="1">
-      <ContentControl Content="{Binding Data}">        
+      <ContentControl Content="{Binding Data}">
         <ContentControl.DataTemplates>
           <DataTemplate DataType="vm:Welcome">
             <v:Welcome/>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:LoadingRemoteRepository">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+              <ProgressBar IsIndeterminate="True" Width="240" Height="4"/>
+              <TextBlock HorizontalAlignment="Center" Text="{Binding Message}"/>
+            </StackPanel>
           </DataTemplate>
 
           <DataTemplate DataType="vm:Repository">

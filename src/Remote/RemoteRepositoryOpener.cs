@@ -24,10 +24,9 @@ namespace SourceGit.Remote
             if (session == null)
             {
                 // Auto-connect when opening a remote repository (restored tabs, recent repos, etc.).
-                // This makes remote SSH repositories behave like local ones: they just open.
-                var connected = Task.Run(async () => await RemoteHostManager.Instance.ConnectAsync(host).ConfigureAwait(false))
-                    .GetAwaiter()
-                    .GetResult();
+                // This is called from a background thread by the launcher, so blocking here is fine
+                // and does not stall the UI.
+                var connected = RemoteHostManager.Instance.ConnectAsync(host).GetAwaiter().GetResult();
 
                 if (!connected)
                     throw new Exception($"Host '{host?.Name ?? host?.Host}' could not be connected automatically.");

@@ -39,6 +39,8 @@ namespace SourceGit
             {
                 if (TryLaunchAsRemoteSelfTest(args, out int exitSelfTest))
                     Environment.Exit(exitSelfTest);
+                else if (TryLaunchAsRemoteServerVersion(args, out int exitVersion))
+                    Environment.Exit(exitVersion);
                 else if (TryLaunchAsRemoteServer(args, out int exitRemote))
                     Environment.Exit(exitRemote);
                 else if (TryLaunchAsRebaseTodoEditor(args, out int exitTodo))
@@ -280,6 +282,21 @@ namespace SourceGit
         #endregion
 
         #region Launch Ways
+        private static bool TryLaunchAsRemoteServerVersion(string[] args, out int exitCode)
+        {
+            exitCode = -1;
+
+            if (args.Length == 0 || !args[0].Equals("--remote-server-version", StringComparison.Ordinal))
+                return false;
+
+            // One-shot version probe used by the client to decide whether the deployed
+            // server binary is stale and needs re-uploading. Prints the friendly build
+            // version (git describe) and exits.
+            Console.Out.WriteLine(Native.OS.GetAppVersion());
+            exitCode = 0;
+            return true;
+        }
+
         private static bool TryLaunchAsRemoteServer(string[] args, out int exitCode)
         {
             exitCode = -1;

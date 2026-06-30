@@ -100,18 +100,36 @@ namespace SourceGit.Remote
         public void Dispose() => Disconnect();
 
         /// <summary>
-        /// Ensure the server binary exists and is executable on the remote host. Probes first
-        /// so the common case (already deployed) needs no upload; uploads the bundled binary
-        /// if missing or when <paramref name="forceRedeploy"/> is set. Throws on failure.
+        /// Ensure the server binary exists, is executable, and matches the client's build
+        /// version. Probes first so the common case (already deployed, up to date) needs no
+        /// upload; uploads the bundled binary when missing, when <paramref name="forceRedeploy"/>
+        /// is set, or when the deployed version differs from the client. Throws on failure.
         /// </summary>
         private static void EnsureRemoteServer(string host, bool forceRedeploy)
         {
-            if (!forceRedeploy)
+            var needUpload = forceRedeploy;
+
+            if (!needUpload)
             {
                 var probe = SshExec.Run(host, $"test -x {RemoteServerBinary} && echo OK");
-                if (probe.stdout.Trim() == "OK")
-                    return;
+                if (probe.stdout.Trim() != "OK")
+                {
+                    needUpload = true;
+                }
+                else
+                {
+                    // Ask the deployed binary for its build version. `timeout` guards against
+                    // very old builds that don't understand --remote-server-version and would
+                    // otherwise try to start a GUI over SSH and hang.
+                    var expected = Native.OS.GetAppVersion();
+                    var remote = SshExec.Run(host, $"timeout 5s {RemoteServerBinary} --remote-server-version");
+                    if (remote.exitCode != 0 || !remote.stdout.Trim().Equals(expected, StringComparison.Ordinal))
+                        needUpload = true;
+                }
             }
+
+            if (!needUpload)
+                return;
 
             var local = Native.OS.GetBundledRemoteServerPath();
             if (string.IsNullOrEmpty(local))
