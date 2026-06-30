@@ -19,7 +19,10 @@ namespace SourceGit.Remote
     public sealed class RemoteHostSession : IDisposable
     {
         // Fixed command that launches the auto-deployed server on the remote host.
-        private const string RemoteServerCommand = "~/.sourcegit-server/sourcegit --remote-server";
+        // `exec` replaces the remote login shell with the server process so that when the
+        // SSH channel closes the server receives SIGHUP and exits instead of being orphaned
+        // (some shells, e.g. fish, leave the child running otherwise).
+        private const string RemoteServerCommand = "exec ~/.sourcegit-server/sourcegit --remote-server";
         private const string RemoteServerDir = "~/.sourcegit-server";
         private const string RemoteServerBinary = "~/.sourcegit-server/sourcegit";
 
