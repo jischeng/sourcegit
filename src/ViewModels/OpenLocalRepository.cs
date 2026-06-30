@@ -16,9 +16,11 @@ namespace SourceGit.ViewModels
             set => SetProperty(ref _repoPath, value, true);
         }
 
+        private bool _isSSHRemote;
         public bool IsSSHRemote
         {
-            get; set;
+            get => _isSSHRemote;
+            set => SetProperty(ref _isSSHRemote, value);
         }
 
         public string SSHHost
