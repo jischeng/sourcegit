@@ -632,6 +632,10 @@
   <x:String x:Key="Text.OpenLocalRepository.Bookmark" xml:space="preserve">书签 ：</x:String>
   <x:String x:Key="Text.OpenLocalRepository.Group" xml:space="preserve">分组 ：</x:String>
   <x:String x:Key="Text.OpenLocalRepository.Path" xml:space="preserve">仓库位置 ：</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.SSHRemote" xml:space="preserve">SSH 远程</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.Host" xml:space="preserve">主机 ：</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.RemoteServerPath" xml:space="preserve">远端 SourceGit 路径 ：</x:String>
+  <x:String x:Key="Text.OpenLocalRepository.RemotePath" xml:space="preserve">远端仓库路径 ：</x:String>
   <x:String x:Key="Text.Optional" xml:space="preserve">选填。</x:String>
   <x:String x:Key="Text.PageTabBar.New" xml:space="preserve">新建空白页</x:String>
   <x:String x:Key="Text.PageTabBar.Tab.Close" xml:space="preserve">关闭标签页</x:String>

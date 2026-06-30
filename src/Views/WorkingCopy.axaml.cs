@@ -113,7 +113,19 @@ namespace SourceGit.Views
                 {
                     var change = vm.SelectedUnstaged[0];
                     var fullpath = Native.OS.GetAbsPath(vm.Repository.FullPath, change.Path);
-                    if (File.Exists(fullpath))
+                    if (vm.Repository.IsRemote)
+                    {
+                        try
+                        {
+                            using var stream = vm.Repository.FileSystem.OpenRead(fullpath);
+                            var tmp = Path.GetTempFileName();
+                            await using (var fs = File.Create(tmp))
+                                await stream.CopyToAsync(fs);
+                            Native.OS.OpenWithDefaultEditor(tmp);
+                        }
+                        catch { }
+                    }
+                    else if (File.Exists(fullpath))
                         Native.OS.OpenWithDefaultEditor(fullpath);
                     e.Handled = true;
                 }
@@ -152,7 +164,19 @@ namespace SourceGit.Views
                 {
                     var change = vm.SelectedStaged[0];
                     var fullpath = Native.OS.GetAbsPath(vm.Repository.FullPath, change.Path);
-                    if (File.Exists(fullpath))
+                    if (vm.Repository.IsRemote)
+                    {
+                        try
+                        {
+                            using var stream = vm.Repository.FileSystem.OpenRead(fullpath);
+                            var tmp = Path.GetTempFileName();
+                            await using (var fs = File.Create(tmp))
+                                await stream.CopyToAsync(fs);
+                            Native.OS.OpenWithDefaultEditor(tmp);
+                        }
+                        catch { }
+                    }
+                    else if (File.Exists(fullpath))
                         Native.OS.OpenWithDefaultEditor(fullpath);
                     e.Handled = true;
                 }
