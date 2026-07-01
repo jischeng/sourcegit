@@ -64,7 +64,7 @@
           <TextBlock Grid.Row="5" Grid.Column="0" Classes="bold" Text="{OnPlatform Ctrl+N, macOS=⌘+N}"/>
           <TextBlock Grid.Row="5" Grid.Column="1" Margin="16,0,0,0" Text="{DynamicResource Text.Hotkeys.Global.Clone}" />
 
-          <TextBlock Grid.Row="6" Grid.Column="0" Classes="bold" Text="{OnPlatform Ctrl+Shift+O, macOS=⌘+⇧+O}"/>
+          <TextBlock Grid.Row="6" Grid.Column="0" Classes="bold" Text="{OnPlatform Ctrl+L, macOS=⌘+⇧+O}"/>
           <TextBlock Grid.Row="6" Grid.Column="1" Margin="16,0,0,0" Text="{DynamicResource Text.Hotkeys.Global.OpenLocalRepository}" />
 
           <TextBlock Grid.Row="7" Grid.Column="0" Classes="bold" Text="{OnPlatform Ctrl+Alt+P, macOS=⌘+⌥+P}"/>
