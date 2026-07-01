@@ -1090,21 +1090,13 @@
                             CornerRadius="3" Background="{DynamicResource Brush.Contents}"
                             IsVisible="{Binding StatusLogText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                             ClipToBounds="True">
-                      <TextBox Margin="0" Padding="4"
-                               Text="{Binding StatusLogText, Mode=OneWay}"
-                               IsReadOnly="True"
-                               AcceptsReturn="True"
-                               TextWrapping="NoWrap"
-                               FontFamily="{StaticResource Fonts.Monospace}"
-                               FontSize="11"
-                               Foreground="{DynamicResource Brush.FG1}"
-                               Background="Transparent"
-                               BorderThickness="0"
-                               CaretBrush="{DynamicResource Brush.FG1}"
-                               SelectionBrush="{DynamicResource Brush.Accent}"
-                               SelectionForegroundBrush="White"
-                               ScrollViewer.VerticalScrollBarVisibility="Auto"
-                               ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                      <ScrollViewer Padding="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                        <SelectableTextBlock Text="{Binding StatusLogText, Mode=OneWay}"
+                                             FontFamily="{StaticResource Fonts.Monospace}"
+                                             FontSize="10"
+                                             Foreground="{DynamicResource Brush.FG1}"
+                                             TextWrapping="NoWrap"/>
+                      </ScrollViewer>
                     </Border>
                   </Grid>
                 </DataTemplate>

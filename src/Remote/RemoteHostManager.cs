@@ -98,8 +98,11 @@ namespace SourceGit.Remote
 
             CloseTabsForHost(host.Host);
 
-            if (_sessions.TryGetValue(Key(host.Host), out var session))
-                session.Disconnect();
+            lock (_sessions)
+            {
+                if (_sessions.TryGetValue(Key(host.Host), out var session))
+                    session.Disconnect();
+            }
 
             SetState(host, Models.RemoteHostState.Disconnected, string.Empty);
         }
@@ -121,7 +124,8 @@ namespace SourceGit.Remote
             if (host == null || string.IsNullOrEmpty(host.Host))
                 return null;
 
-            return _sessions.TryGetValue(Key(host.Host), out var session) && session.IsConnected ? session : null;
+            lock (_sessions)
+                return _sessions.TryGetValue(Key(host.Host), out var session) && session.IsConnected ? session : null;
         }
 
         public RemoteHostSession GetConnectedSession(string host)
@@ -129,19 +133,23 @@ namespace SourceGit.Remote
             if (string.IsNullOrEmpty(host))
                 return null;
 
-            return _sessions.TryGetValue(Key(host), out var session) && session.IsConnected ? session : null;
+            lock (_sessions)
+                return _sessions.TryGetValue(Key(host), out var session) && session.IsConnected ? session : null;
         }
 
         private RemoteHostSession GetOrCreate(Models.RemoteHost host)
         {
             var key = Key(host.Host);
-            if (!_sessions.TryGetValue(key, out var session))
+            lock (_sessions)
             {
-                session = new RemoteHostSession(host);
-                _sessions[key] = session;
-            }
+                if (!_sessions.TryGetValue(key, out var session))
+                {
+                    session = new RemoteHostSession(host);
+                    _sessions[key] = session;
+                }
 
-            return session;
+                return session;
+            }
         }
 
         private void CloseTabsForHost(string host)
