@@ -38,8 +38,8 @@ namespace SourceGit.Remote
                 throw new NotSupportedException("RemoteCommandRunner.Start does not support stdin (handled in a later phase)");
 
             var r = ExecGit(spec);
-            var stdout = new MemoryStream(Encoding.UTF8.GetBytes(r.Stdout ?? string.Empty), writable: false);
-            var stderr = new MemoryStream(Encoding.UTF8.GetBytes(r.Stderr ?? string.Empty), writable: false);
+            var stdout = Encoding.UTF8.GetBytes(r.Stdout ?? string.Empty);
+            var stderr = Encoding.UTF8.GetBytes(r.Stderr ?? string.Empty);
             return new RemoteCommandProcess(stdout, stderr, r.ExitCode);
         }
 
@@ -104,28 +104,33 @@ namespace SourceGit.Remote
 
         private sealed class RemoteCommandProcess : ICommandProcess
         {
-            private readonly MemoryStream _stdout;
-            private readonly MemoryStream _stderr;
+            private readonly byte[] _stdout;
+            private readonly byte[] _stderr;
             private readonly int _exitCode;
+            private StreamReader _stdoutReader;
+            private StreamReader _stderrReader;
 
-            public RemoteCommandProcess(MemoryStream stdout, MemoryStream stderr, int exitCode)
+            public RemoteCommandProcess(byte[] stdout, byte[] stderr, int exitCode)
             {
                 _stdout = stdout;
                 _stderr = stderr;
                 _exitCode = exitCode;
             }
 
-            public StreamReader Stdout => new StreamReader(_stdout, Encoding.UTF8, leaveOpen: true);
-            public Stream StdoutStream => _stdout;
+            // Stdout/Stderr are cached so a consumer that calls ReadLineAsync in a loop sees a
+            // single continuous reader instead of a fresh reader (at position 0) each access.
+            // StdoutStream returns an independent fresh stream for callers that copy bytes.
+            public StreamReader Stdout => _stdoutReader ??= new StreamReader(new MemoryStream(_stdout, writable: false), Encoding.UTF8);
+            public Stream StdoutStream => new MemoryStream(_stdout, writable: false);
             public StreamWriter Stdin => throw new NotSupportedException("remote process has no stdin via Start");
-            public StreamReader Stderr => new StreamReader(_stderr, Encoding.UTF8, leaveOpen: true);
+            public StreamReader Stderr => _stderrReader ??= new StreamReader(new MemoryStream(_stderr, writable: false), Encoding.UTF8);
             public Task WaitForExitAsync(CancellationToken ct) => Task.CompletedTask;
             public int ExitCode => _exitCode;
 
             public void Dispose()
             {
-                _stdout.Dispose();
-                _stderr.Dispose();
+                _stdoutReader?.Dispose();
+                _stderrReader?.Dispose();
             }
         }
     }
