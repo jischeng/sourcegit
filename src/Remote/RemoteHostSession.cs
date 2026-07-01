@@ -154,7 +154,22 @@ namespace SourceGit.Remote
 
             var size = new System.IO.FileInfo(local).Length;
             onProgress?.Invoke($"Uploading server binary ({size / 1024 / 1024} MB)...");
-            if (ScpUpload.Upload(host, local, RemoteServerBinary) != 0)
+
+            var sw = Stopwatch.StartNew();
+            long lastSent = 0;
+            long lastTick = 0;
+            if (ScpUpload.Upload(host, local, RemoteServerBinary, (sent, total) =>
+                {
+                    var tick = sw.ElapsedMilliseconds;
+                    if (total <= 0 || (tick - lastTick < 1000 && sent != total))
+                        return;
+
+                    var dt = (tick - lastTick) / 1000.0;
+                    var speed = dt > 0 ? (sent - lastSent) / 1024.0 / 1024.0 / dt : 0;
+                    onProgress?.Invoke($"  {sent * 100 / total}% · {speed:F1} MB/s");
+                    lastSent = sent;
+                    lastTick = tick;
+                }) != 0)
                 throw new Exception($"Failed to upload server binary to '{host}'.");
 
             onProgress?.Invoke("Setting executable permissions...");

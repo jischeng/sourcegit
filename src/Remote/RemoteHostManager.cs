@@ -20,24 +20,29 @@ namespace SourceGit.Remote
     {
         public static RemoteHostManager Instance { get; } = new();
 
-        /// <summary>Probe connectivity without deploying or launching the server.</summary>
+        /// <summary>Probe connectivity (and latency) without deploying or launching the server.</summary>
         public async Task TestAsync(Models.RemoteHost host)
         {
             if (host == null || host.IsBusy)
                 return;
 
-            // Testing a connected host would briefly clobber the green state and could leave it
-            // stuck gray; skip instead — the connection is already known to be alive.
-            if (host.IsConnected)
-                return;
-
+            var wasConnected = host.IsConnected;
             SetState(host, Models.RemoteHostState.Testing, "Testing...");
 
             var session = GetOrCreate(host);
             var (ok, message) = await Task.Run(session.Test).ConfigureAwait(false);
 
-            if (host.State == Models.RemoteHostState.Connected)
-                return; // a connect finished while testing; don't clobber it
+            // A connect/reset finished while we were testing; don't clobber it.
+            if (host.State == Models.RemoteHostState.Connected && !wasConnected)
+                return;
+
+            if (wasConnected)
+            {
+                // Preserve the green state, just surface the latency/ failure on top of it.
+                SetState(host, Models.RemoteHostState.Connected,
+                    ok ? $"Connected · latency {message}" : $"Connected (test failed: {message})");
+                return;
+            }
 
             SetState(host, ok ? Models.RemoteHostState.Disconnected : Models.RemoteHostState.Failed,
                 ok ? $"SSH reachable · latency {message}" : message);

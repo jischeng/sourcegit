@@ -134,48 +134,12 @@ namespace SourceGit.Remote
     /// </summary>
     public static class ScpUpload
     {
-        public static int Upload(string host, string localFile, string remotePath)
-        {
-            // Prefer scp; it is the common case and handles progress/permissions natively.
-            var scpCode = TryScp(host, localFile, remotePath);
-            if (scpCode == 0)
-                return 0;
-
-            // Fallback for minimal/container hosts where scp is not installed: stream the file
-            // over a plain ssh channel with `cat > remote`. Works everywhere ssh works.
-            return UploadViaSshCat(host, localFile, remotePath);
-        }
-
-        private static int TryScp(string host, string localFile, string remotePath)
-        {
-            var args = $"-o BatchMode=yes -o StrictHostKeyChecking=accept-new \"{localFile}\" {host}:{remotePath}";
-            var psi = new ProcessStartInfo("scp", args)
-            {
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-            };
-
-            try
-            {
-                using var p = Process.Start(psi);
-                if (p == null)
-                    return -1;
-
-                var stdoutTask = p.StandardOutput.ReadToEndAsync();
-                var stderrTask = p.StandardError.ReadToEndAsync();
-                p.WaitForExit();
-                Task.WaitAll(stdoutTask, stderrTask);
-                return p.ExitCode;
-            }
-            catch
-            {
-                return -1;
-            }
-        }
-
-        private static int UploadViaSshCat(string host, string localFile, string remotePath)
+        /// <summary>
+        /// Upload a local file to the remote host by streaming it over a plain ssh channel
+        /// (<c>cat &gt; remote</c>). This works even on hosts without <c>scp</c> and lets us
+        /// report real progress/speed to the caller.
+        /// </summary>
+        public static int Upload(string host, string localFile, string remotePath, Action<long, long> onProgress = null)
         {
             var args = $"-T -o BatchMode=yes -o StrictHostKeyChecking=accept-new {host} \"cat > {remotePath}\"";
             var psi = new ProcessStartInfo("ssh", args)
@@ -193,14 +157,23 @@ namespace SourceGit.Remote
                 if (p == null)
                     return -1;
 
-                // Stream the local file into ssh stdin; drain stdout/stderr to avoid pipe deadlock.
                 var stdoutTask = p.StandardOutput.ReadToEndAsync();
                 var stderrTask = p.StandardError.ReadToEndAsync();
 
                 using var fs = File.OpenRead(localFile);
-                fs.CopyTo(p.StandardInput.BaseStream);
-                p.StandardInput.Close();
+                var total = fs.Length;
+                long sent = 0;
+                var buf = new byte[64 * 1024];
+                int read;
 
+                while ((read = fs.Read(buf, 0, buf.Length)) > 0)
+                {
+                    p.StandardInput.BaseStream.Write(buf, 0, read);
+                    sent += read;
+                    onProgress?.Invoke(sent, total);
+                }
+
+                p.StandardInput.Close();
                 p.WaitForExit();
                 Task.WaitAll(stdoutTask, stderrTask);
                 return p.ExitCode;
