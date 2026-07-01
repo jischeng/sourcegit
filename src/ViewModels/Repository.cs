@@ -430,6 +430,13 @@ namespace SourceGit.ViewModels
 
         public bool IsRemote { get; } = false;
 
+        /// <summary>
+        /// For remote repositories, the SSH host used to open this repository. Needed so that
+        /// worktrees/submodules opened from a remote repo are opened on the same host instead
+        /// of being treated as local paths.
+        /// </summary>
+        internal Models.RemoteHost RemoteHost { get; set; } = null;
+
         // The live SSH connection is owned by Remote.RemoteHostSession (shared across repos),
         // so the repository only owns its per-repo change watcher and never tears the
         // connection down on close.
@@ -1567,8 +1574,7 @@ namespace SourceGit.ViewModels
                 return;
 
             var root = Path.GetFullPath(Path.Combine(FullPath, submodule));
-            var normalizedPath = root.Replace('\\', '/').TrimEnd('/');
-            App.GetLauncher().OpenRepositoryInTab(normalizedPath, null);
+            OpenOwnedPathAsRepository(root);
         }
 
         public void AddWorktree()
@@ -1588,8 +1594,29 @@ namespace SourceGit.ViewModels
             if (worktree.IsCurrent)
                 return;
 
-            var normalizedPath = worktree.FullPath.Replace('\\', '/').TrimEnd('/');
-            App.GetLauncher().OpenRepositoryInTab(normalizedPath, null);
+            OpenOwnedPathAsRepository(worktree.FullPath);
+        }
+
+        /// <summary>
+        /// Open a path that belongs to this repository (worktree/submodule). For a remote
+        /// repository the path lives on the remote host, so it must be opened as a remote
+        /// repository on the same host — not as a local path (which would fail with
+        /// "Repository does NOT exist").
+        /// </summary>
+        private void OpenOwnedPathAsRepository(string path)
+        {
+            var normalizedPath = path.Replace('\\', '/').TrimEnd('/');
+            if (!IsRemote)
+            {
+                App.GetLauncher().OpenRepositoryInTab(normalizedPath, null);
+                return;
+            }
+
+            var node = Preferences.Instance.FindOrAddNodeByRepositoryPath(normalizedPath, null, false, save: false);
+            node.IsRemote = true;
+            node.RemoteHost = RemoteHost;
+            Preferences.Instance.Save();
+            App.GetLauncher().OpenRepositoryInTab(node, null);
         }
 
         public async Task LockWorktreeAsync(Worktree worktree)

@@ -14,10 +14,9 @@ namespace SourceGit.Remote
     /// host where the repository lives, so these calls act on the real working tree and
     /// <c>.git</c> internals.
     /// <para>
-    /// Text-oriented operations are implemented now. Binary streaming (<see cref="OpenRead"/>/
-    /// <see cref="Create"/>) will follow once the protocol gains a chunked transfer; for now
-    /// <see cref="OpenRead"/> is text-based (sufficient for source files) and
-    /// <see cref="Create"/> throws.
+    /// Text operations use the <c>read_file</c>/<c>write_file</c> RPCs; <see cref="OpenRead"/>
+    /// uses <c>read_file_base64</c> and spills to a local temp file so binary files (images,
+    /// blobs) are handled correctly. <see cref="Create"/> is still not supported remotely.
     /// </para>
     /// </summary>
     public sealed class RemoteFileSystem : IFileSystem, IDisposable
@@ -52,9 +51,15 @@ namespace SourceGit.Remote
 
         public Stream OpenRead(string path)
         {
-            // Text-based for now; binary chunked transfer is a later-phase addition.
-            var content = ReadAllText(path);
-            return new MemoryStream(Encoding.UTF8.GetBytes(content));
+            // Fetch the file as base64 so binary files (images, etc.) are not corrupted, then
+            // spill to a local temp file and return a stream that deletes it on close. The
+            // whole file is buffered in memory during transfer, which is fine for the image
+            // previews / blob views that are the typical binary use case here.
+            var b64 = (string)_client.Call("read_file_base64", new { path })["content"];
+            var bytes = Convert.FromBase64String(b64);
+            var tmp = Path.GetTempFileName();
+            File.WriteAllBytes(tmp, bytes);
+            return new FileStream(tmp, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
         }
 
         public Stream Create(string path) => throw new NotSupportedException("RemoteFileSystem.Create stream is not supported yet (later phase)");

@@ -120,6 +120,9 @@ namespace SourceGit.Remote
                 case "read_file":
                     return JsonSerializer.SerializeToNode(new { content = File.ReadAllText(GetString(p, "path")) });
 
+                case "read_file_base64":
+                    return JsonSerializer.SerializeToNode(new { content = Convert.ToBase64String(File.ReadAllBytes(GetString(p, "path"))) });
+
                 case "write_file":
                     File.WriteAllText(GetString(p, "path"), GetString(p, "content"));
                     return JsonSerializer.SerializeToNode(new { });
