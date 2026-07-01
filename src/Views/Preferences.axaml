@@ -1097,10 +1097,12 @@
                                TextWrapping="NoWrap"
                                FontFamily="{StaticResource Fonts.Monospace}"
                                FontSize="11"
-                               Foreground="{DynamicResource Brush.FG2}"
+                               Foreground="{DynamicResource Brush.FG1}"
                                Background="Transparent"
                                BorderThickness="0"
-                               CaretBrush="{DynamicResource Brush.FG2}"
+                               CaretBrush="{DynamicResource Brush.FG1}"
+                               SelectionBrush="{DynamicResource Brush.Accent}"
+                               SelectionForegroundBrush="White"
                                ScrollViewer.VerticalScrollBarVisibility="Auto"
                                ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
                     </Border>

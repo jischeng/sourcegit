@@ -155,10 +155,13 @@ namespace SourceGit.Remote
             var size = new System.IO.FileInfo(local).Length;
             onProgress?.Invoke($"Uploading server binary ({size / 1024 / 1024} MB)...");
 
+            // Upload to a temp path first, then atomically mv over the target. Overwriting a
+            // running binary directly fails with "Text file busy" on Linux.
+            var tempPath = RemoteServerBinary + ".new";
             var sw = Stopwatch.StartNew();
             long lastSent = 0;
             long lastTick = 0;
-            if (ScpUpload.Upload(host, local, RemoteServerBinary, (sent, total) =>
+            if (ScpUpload.Upload(host, local, tempPath, (sent, total) =>
                 {
                     var tick = sw.ElapsedMilliseconds;
                     if (total <= 0 || (tick - lastTick < 1000 && sent != total))
@@ -173,9 +176,14 @@ namespace SourceGit.Remote
                 throw new Exception($"Failed to upload server binary to '{host}'.");
 
             onProgress?.Invoke("Setting executable permissions...");
-            var chmod = SshExec.Run(host, $"chmod +x {RemoteServerBinary}");
+            var chmod = SshExec.Run(host, $"chmod +x {tempPath}");
             if (chmod.exitCode != 0)
                 throw new Exception($"Failed to chmod server binary on '{host}' (exit {chmod.exitCode}).");
+
+            onProgress?.Invoke("Activating new server binary...");
+            var mv = SshExec.Run(host, $"mv -f {tempPath} {RemoteServerBinary}");
+            if (mv.exitCode != 0)
+                throw new Exception($"Failed to activate server binary on '{host}' (exit {mv.exitCode}).");
         }
 
         private IConnection _conn;
