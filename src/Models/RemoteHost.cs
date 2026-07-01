@@ -81,6 +81,14 @@ namespace SourceGit.Models
         [JsonIgnore]
         public ObservableCollection<string> StatusLog { get; } = new();
 
+        /// <summary>Joined log text for copy-friendly display in a read-only TextBox.</summary>
+        [JsonIgnore]
+        public string StatusLogText
+        {
+            get => _statusLogText;
+            set => SetProperty(ref _statusLogText, value);
+        }
+
         [JsonIgnore]
         public bool IsConnected => _state == RemoteHostState.Connected;
 
@@ -101,5 +109,6 @@ namespace SourceGit.Models
         private string _host = string.Empty;
         private RemoteHostState _state = RemoteHostState.Disconnected;
         private string _statusMessage = string.Empty;
+        private string _statusLogText = string.Empty;
     }
 }

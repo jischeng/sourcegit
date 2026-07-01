@@ -27,7 +27,7 @@ namespace SourceGit.Remote
                 return;
 
             var wasConnected = host.IsConnected;
-            Dispatcher.UIThread.Post(() => host.StatusLog.Clear());
+            Dispatcher.UIThread.Post(() => { host.StatusLog.Clear(); host.StatusLogText = string.Empty; });
             SetState(host, Models.RemoteHostState.Testing, "Testing...");
 
             var session = GetOrCreate(host);
@@ -63,7 +63,7 @@ namespace SourceGit.Remote
 
             // Start a fresh log for this attempt. Clear before SetState so the state line is
             // the first entry, not wiped by a later clear.
-            Dispatcher.UIThread.Post(() => host.StatusLog.Clear());
+            Dispatcher.UIThread.Post(() => { host.StatusLog.Clear(); host.StatusLogText = string.Empty; });
             SetState(host, Models.RemoteHostState.Connecting, forceRedeploy ? "Re-deploying..." : "Connecting...");
 
             var session = GetOrCreate(host);
@@ -175,7 +175,10 @@ namespace SourceGit.Remote
                 host.State = state;
                 host.StatusMessage = message;
                 if (!string.IsNullOrEmpty(message))
+                {
                     host.StatusLog.Add($"{DateTime.Now:HH:mm:ss}  {message}");
+                    host.StatusLogText = string.Join("\n", host.StatusLog);
+                }
             });
         }
 
@@ -185,7 +188,24 @@ namespace SourceGit.Remote
             if (host == null || string.IsNullOrEmpty(message))
                 return;
 
-            Dispatcher.UIThread.Post(() => host.StatusLog.Add($"{DateTime.Now:HH:mm:ss}  {message}"));
+            Dispatcher.UIThread.Post(() =>
+            {
+                host.StatusLog.Add($"{DateTime.Now:HH:mm:ss}  {message}");
+                host.StatusLogText = string.Join("\n", host.StatusLog);
+            });
+        }
+
+        /// <summary>Clear the scrolling log (called when the settings window opens).</summary>
+        public void ClearLog(Models.RemoteHost host)
+        {
+            if (host == null)
+                return;
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                host.StatusLog.Clear();
+                host.StatusLogText = string.Empty;
+            });
         }
 
         private static string Key(string host) => (host ?? string.Empty).Trim();

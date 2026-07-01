@@ -216,7 +216,10 @@ namespace SourceGit.Remote
                     {
                         if (!_blocks.TryTake(out _current, Timeout.Infinite))
                         {
-                            // Collection completed and empty.
+                            // Collection completed and empty. Reset _current so a subsequent
+                            // Read call doesn't NRE on a null _current.
+                            _current = Array.Empty<byte>();
+                            _pos = 0;
                             break;
                         }
                         _pos = 0;

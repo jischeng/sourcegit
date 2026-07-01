@@ -14,7 +14,8 @@
                     x:Name="ThisControl"
                     Icon="/App.ico"
                     Title="{DynamicResource Text.Preferences}"
-                    SizeToContent="WidthAndHeight"
+                    Width="720" Height="640"
+                    SizeToContent="Manual"
                     CanResize="False"
                     WindowStartupLocation="CenterScreen">
   <Grid RowDefinitions="Auto,Auto" MinWidth="600">
@@ -1087,16 +1088,20 @@
                     <Border Grid.Row="6" Margin="0,8,0,0"
                             BorderThickness="1" BorderBrush="{DynamicResource Brush.Border1}"
                             CornerRadius="3" Background="{DynamicResource Brush.Contents}"
-                            IsVisible="{Binding StatusLog.Count, Converter={x:Static c:IntConverters.IsGreaterThanZero}}">
-                      <ScrollViewer Padding="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <ItemsControl ItemsSource="{Binding StatusLog}">
-                          <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="x:String">
-                              <TextBlock Text="{Binding}" FontFamily="{StaticResource Fonts.Monospace}" FontSize="11" Foreground="{DynamicResource Brush.FG2}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                            </DataTemplate>
-                          </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                      </ScrollViewer>
+                            IsVisible="{Binding StatusLogText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                      <TextBox Margin="0" Padding="4"
+                               Text="{Binding StatusLogText, Mode=OneWay}"
+                               IsReadOnly="True"
+                               AcceptsReturn="True"
+                               TextWrapping="NoWrap"
+                               FontFamily="{StaticResource Fonts.Monospace}"
+                               FontSize="11"
+                               Foreground="{DynamicResource Brush.FG2}"
+                               Background="Transparent"
+                               BorderThickness="0"
+                               CaretBrush="{DynamicResource Brush.FG2}"
+                               ScrollViewer.VerticalScrollBarVisibility="Auto"
+                               ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
                     </Border>
                   </Grid>
                 </DataTemplate>

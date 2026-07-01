@@ -153,6 +153,11 @@ namespace SourceGit.Views
             DataContext = pref;
             CloseOnESC = true;
 
+            // Clear stale remote host logs from a previous settings session so the log box
+            // starts hidden and only shows content after a fresh test/connect/reset.
+            foreach (var host in pref.RemoteHosts)
+                Remote.RemoteHostManager.Instance.ClearLog(host);
+
             if (pref.IsGitConfigured())
             {
                 var config = new Commands.Config(null).ReadAll();
