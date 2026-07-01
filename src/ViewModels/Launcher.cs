@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 
 using Avalonia.Collections;
 using Avalonia.Threading;
@@ -167,12 +168,7 @@ namespace SourceGit.ViewModels
             var toIdx = Pages.IndexOf(to);
             Pages.Move(fromIdx, toIdx);
 
-            _activeWorkspace.Repositories.Clear();
-            foreach (var p in Pages)
-            {
-                if (p.Data is Repository r)
-                    _activeWorkspace.Repositories.Add(r.FullPath);
-            }
+            RebuildWorkspaceRepositoryList();
 
             _ignoreIndexChange = false;
             ActivePage = from;
@@ -304,6 +300,12 @@ namespace SourceGit.ViewModels
                 }
             }
 
+            if (node.IsRemote)
+            {
+                OpenRemoteRepositoryInTab(node, page);
+                return;
+            }
+
             if (!Directory.Exists(node.Id))
             {
                 ActivePage.Notifications.Add(new Models.Notification
@@ -354,17 +356,163 @@ namespace SourceGit.ViewModels
                 page.Data = repo;
             }
 
-            _activeWorkspace.Repositories.Clear();
-            foreach (var p in Pages)
-            {
-                if (p.Data is Repository r)
-                    _activeWorkspace.Repositories.Add(r.FullPath);
-            }
+            RebuildWorkspaceRepositoryList();
 
             if (_activePage == page)
                 PostActivePageChanged();
             else
                 ActivePage = page;
+        }
+
+        /// <summary>
+        /// Open a remote SSH repository without blocking the UI. A loading page is shown
+        /// immediately (so the tab strip keeps working and the window stays responsive),
+        /// and the real <see cref="Repository"/> replaces it once the SSH connection and
+        /// probes finish on a background thread.
+        /// </summary>
+        private void OpenRemoteRepositoryInTab(RepositoryNode node, LauncherPage page)
+        {
+            // Fast path: the host is already connected, so opening is just a couple of quick
+            // RPC probes. Do it synchronously to avoid the loading-page flash; the UI stays
+            // responsive enough because no SSH connect is needed.
+            if (Remote.RemoteHostManager.Instance.GetConnectedSession(node.RemoteHost) != null)
+            {
+                Repository repo;
+                try
+                {
+                    repo = Remote.RemoteRepositoryOpener.Open(node.RemoteHost, node.Id);
+                }
+                catch (Exception ex)
+                {
+                    ActivePage.Notifications.Add(new Models.Notification
+                    {
+                        Group = node.Id,
+                        Message = $"Failed to open remote repository: {ex.Message}",
+                        IsError = true,
+                    });
+                    return;
+                }
+
+                repo.Open();
+
+                if (page == null)
+                {
+                    if (_activePage == null || _activePage.Node.IsRepository || _activePage.Data is LoadingRemoteRepository)
+                    {
+                        page = new LauncherPage(node, repo);
+                        Pages.Add(page);
+                    }
+                    else
+                    {
+                        page = _activePage;
+                        page.Node = node;
+                        page.Data = repo;
+                    }
+                }
+                else
+                {
+                    page.Node = node;
+                    page.Data = repo;
+                }
+
+                RebuildWorkspaceRepositoryList();
+
+                if (_activePage == page)
+                    PostActivePageChanged();
+                else
+                    ActivePage = page;
+                return;
+            }
+
+            // Slow path: need to establish SSH connection. Show a loading page immediately and
+            // do the connect/probe on a background thread so the UI never blocks.
+            var hostDisplay = node.RemoteHost?.Name ?? node.RemoteHost?.Host ?? string.Empty;
+            var loading = new LoadingRemoteRepository
+            {
+                Host = hostDisplay,
+                Path = node.Id,
+                Message = App.Text("Launcher.RemoteRepository.Loading", hostDisplay),
+            };
+
+            if (page == null)
+            {
+                if (_activePage == null || _activePage.Node.IsRepository || _activePage.Data is LoadingRemoteRepository)
+                {
+                    page = new LauncherPage(node, loading);
+                    Pages.Add(page);
+                }
+                else
+                {
+                    page = _activePage;
+                    page.Node = node;
+                    page.Data = loading;
+                }
+            }
+            else
+            {
+                page.Node = node;
+                page.Data = loading;
+            }
+
+            RebuildWorkspaceRepositoryList();
+
+            if (_activePage == page)
+                PostActivePageChanged();
+            else
+                ActivePage = page;
+
+            var capturedPage = page;
+            Task.Run(() =>
+            {
+                Repository repo;
+                try
+                {
+                    repo = Remote.RemoteRepositoryOpener.Open(node.RemoteHost, node.Id);
+                }
+                catch (Exception ex)
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        capturedPage.Notifications.Add(new Models.Notification
+                        {
+                            Group = node.Id,
+                            Message = $"Failed to open remote repository: {ex.Message}",
+                            IsError = true,
+                        });
+
+                        capturedPage.Data = Welcome.Instance;
+                        RebuildWorkspaceRepositoryList();
+                    });
+                    return;
+                }
+
+                Dispatcher.UIThread.Post(() =>
+                {
+                    // The user may have closed the tab or navigated away; only swap in the
+                    // repository if the page is still showing our loading state.
+                    if (!ReferenceEquals(capturedPage.Data, loading))
+                        return;
+
+                    repo.Open();
+                    capturedPage.Data = repo;
+                    RebuildWorkspaceRepositoryList();
+
+                    if (_activePage == capturedPage)
+                        PostActivePageChanged();
+                });
+            });
+        }
+
+        private void RebuildWorkspaceRepositoryList()
+        {
+            _activeWorkspace.Repositories.Clear();
+            foreach (var p in Pages)
+            {
+                if (p.Data is Repository r)
+                    _activeWorkspace.Repositories.Add(r.FullPath);
+                else if (p.Data is LoadingRemoteRepository loading)
+                    _activeWorkspace.Repositories.Add(loading.Path);
+            }
         }
 
         private void DispatchNotification(Models.Notification notification)
@@ -436,6 +584,10 @@ namespace SourceGit.ViewModels
                     page.Node.SaveMinimalInfo(repo.GitDir);
 
                 repo.Close();
+            }
+            else if (removeFromWorkspace && page.Data is LoadingRemoteRepository loading)
+            {
+                _activeWorkspace.Repositories.Remove(loading.Path);
             }
 
             page.Popup?.Cleanup();

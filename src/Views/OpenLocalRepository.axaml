@@ -5,10 +5,10 @@
              xmlns:vm="using:SourceGit.ViewModels"
              xmlns:v="using:SourceGit.Views"
              xmlns:c="using:SourceGit.Converters"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="260"
              x:Class="SourceGit.Views.OpenLocalRepository"
              x:DataType="vm:OpenLocalRepository">
-  <StackPanel Orientation="Vertical" Margin="8,0,0,0">
+  <StackPanel Orientation="Vertical" Margin="8,0,0,0" MinWidth="450">
     <StackPanel Orientation="Horizontal">
       <Path Width="16" Height="16"
             Margin="0,2,0,0"
@@ -20,14 +20,34 @@
                  Text="{DynamicResource Text.OpenLocalRepository}"/>
     </StackPanel>
 
-    <Grid Margin="8,16,0,0" RowDefinitions="32,32,32" ColumnDefinitions="Auto,*">
+    <Grid Margin="8,16,0,0" RowDefinitions="32,32,32,32" ColumnDefinitions="120,*">
+      <!-- Host selector (Local + connected remote hosts) -->
       <TextBlock Grid.Row="0" Grid.Column="0"
-                 HorizontalAlignment="Right"
+                 HorizontalAlignment="Right" VerticalAlignment="Center"
                  Margin="0,0,8,0"
+                 Text="{DynamicResource Text.OpenLocalRepository.Host}"/>
+      <ComboBox Grid.Row="0" Grid.Column="1"
+                Height="28" Padding="8,0"
+                VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                ItemsSource="{Binding AvailableHosts}"
+                SelectedItem="{Binding SelectedHost, Mode=TwoWay}">
+        <ComboBox.ItemTemplate>
+          <DataTemplate DataType="vm:RepositoryHostChoice">
+            <TextBlock VerticalAlignment="Center" Text="{Binding Display}"/>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+
+      <!-- Local folder -->
+      <TextBlock Grid.Row="1" Grid.Column="0"
+                 HorizontalAlignment="Right" VerticalAlignment="Center"
+                 Margin="0,0,8,0"
+                 IsVisible="{Binding !IsRemote}"
                  Text="{DynamicResource Text.OpenLocalRepository.Path}"/>
-      <TextBox Grid.Row="0" Grid.Column="1"
+      <TextBox Grid.Row="1" Grid.Column="1"
                Height="28"
                CornerRadius="3"
+               IsVisible="{Binding !IsRemote}"
                Text="{Binding RepoPath, Mode=TwoWay}">
         <TextBox.InnerRightContent>
           <Button Classes="icon_button" Width="28" Height="28" Margin="4,0,0,0" Click="OnSelectRepositoryFolder">
@@ -36,11 +56,31 @@
         </TextBox.InnerRightContent>
       </TextBox>
 
+      <!-- Remote folder -->
       <TextBlock Grid.Row="1" Grid.Column="0"
-                 HorizontalAlignment="Right"
+                 HorizontalAlignment="Right" VerticalAlignment="Center"
+                 Margin="0,0,8,0"
+                 IsVisible="{Binding IsRemote}"
+                 Text="{DynamicResource Text.OpenLocalRepository.RemotePath}"/>
+      <TextBox Grid.Row="1" Grid.Column="1"
+               Height="28"
+               CornerRadius="3"
+               IsVisible="{Binding IsRemote}"
+               Watermark="{DynamicResource Text.OpenLocalRepository.RemotePath.Placeholder}"
+               Text="{Binding RemotePath, Mode=TwoWay}">
+        <TextBox.InnerRightContent>
+          <Button Classes="icon_button" Width="28" Height="28" Margin="4,0,0,0" Click="OnBrowseRemotePath">
+            <Path Data="{StaticResource Icons.Folder.Open}" Fill="{DynamicResource Brush.FG1}"/>
+          </Button>
+        </TextBox.InnerRightContent>
+      </TextBox>
+
+      <!-- Group -->
+      <TextBlock Grid.Row="2" Grid.Column="0"
+                 HorizontalAlignment="Right" VerticalAlignment="Center"
                  Margin="0,0,8,0"
                  Text="{DynamicResource Text.OpenLocalRepository.Group}"/>
-      <ComboBox Grid.Row="1" Grid.Column="1"
+      <ComboBox Grid.Row="2" Grid.Column="1"
                 Height="28" Padding="8,0"
                 VerticalAlignment="Center" HorizontalAlignment="Stretch"
                 ItemsSource="{Binding Groups}"
@@ -52,11 +92,12 @@
         </ComboBox.ItemTemplate>
       </ComboBox>
 
-      <TextBlock Grid.Row="2" Grid.Column="0"
-                 HorizontalAlignment="Right"
+      <!-- Bookmark -->
+      <TextBlock Grid.Row="3" Grid.Column="0"
+                 HorizontalAlignment="Right" VerticalAlignment="Center"
                  Margin="0,0,8,0"
                  Text="{DynamicResource Text.OpenLocalRepository.Bookmark}"/>
-      <v:BookmarkSelector Grid.Row="2" Grid.Column="1"
+      <v:BookmarkSelector Grid.Row="3" Grid.Column="1"
                           HorizontalAlignment="Left" VerticalAlignment="Center"
                           Bookmark="{Binding Bookmark, Mode=TwoWay}"/>
     </Grid>

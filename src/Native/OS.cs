@@ -189,6 +189,42 @@ namespace SourceGit.Native
             return _backend.FindGitExecutable();
         }
 
+        /// <summary>
+        /// Path to the remote-server binary that gets deployed to the host. Prefers the
+        /// <c>SOURCEGIT_REMOTE_SERVER</c> environment override (handy for development, where
+        /// the app is not packaged), then falls back to the bundled Linux binary inside the
+        /// app bundle (Contents/Resources/remote-server/linux-x64/sourcegit). Returns null
+        /// when neither is available so the caller can report a clear error.
+        /// </summary>
+        public static string GetBundledRemoteServerPath()
+        {
+            var overridePath = Environment.GetEnvironmentVariable("SOURCEGIT_REMOTE_SERVER");
+            if (!string.IsNullOrEmpty(overridePath) && File.Exists(overridePath))
+                return overridePath;
+
+            var candidate = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Resources", "remote-server", "linux-x64", "sourcegit"));
+            return File.Exists(candidate) ? candidate : null;
+        }
+
+        /// <summary>
+        /// Friendly build version (git describe, e.g. <c>v2026.14-24-aa693967-dirty</c>) baked
+        /// into the assembly as <c>AssemblyMetadata("FriendlyVersion")</c>. Used to decide
+        /// whether the deployed remote server is out of date and needs re-uploading.
+        /// </summary>
+        public static string GetAppVersion()
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            foreach (var attr in assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
+            {
+                if (attr.Key.Equals("FriendlyVersion", StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(attr.Value))
+                    return attr.Value;
+            }
+
+            var ver = assembly.GetName().Version;
+            return ver != null ? $"v{ver.Major}.{ver.Minor:D2}" : "unknown";
+        }
+
         public static bool TestShellOrTerminal(Models.ShellOrTerminal shell)
         {
             return !string.IsNullOrEmpty(_backend.FindTerminal(shell));

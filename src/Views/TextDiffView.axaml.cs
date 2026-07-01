@@ -1625,9 +1625,10 @@ namespace SourceGit.Views
 
             var tmpFile = Path.GetTempFileName();
             patch.Generate(tmpFile, false);
+            var patchContent = File.ReadAllText(tmpFile);
 
             using var lockWatcher = repo.LockWatcher();
-            await new Commands.Apply(repo.FullPath, tmpFile, true, "nowarn", "--cache --index").ExecAsync();
+            await new Commands.Apply(repo.FullPath, patchContent, true, "nowarn", "--cache --index").ExecAsync();
 
             vm.BlockNavigation.UpdateByChunk(chunk);
             repo.MarkWorkingCopyDirtyManually();
@@ -1651,9 +1652,10 @@ namespace SourceGit.Views
 
             var tmpFile = Path.GetTempFileName();
             patch.Generate(tmpFile, true);
+            var patchContent = File.ReadAllText(tmpFile);
 
             using var lockWatcher = repo.LockWatcher();
-            await new Commands.Apply(repo.FullPath, tmpFile, true, "nowarn", "--cache --index --reverse").ExecAsync();
+            await new Commands.Apply(repo.FullPath, patchContent, true, "nowarn", "--cache --index --reverse").ExecAsync();
 
             vm.BlockNavigation.UpdateByChunk(chunk);
             repo.MarkWorkingCopyDirtyManually();
@@ -1677,9 +1679,10 @@ namespace SourceGit.Views
 
             var tmpFile = Path.GetTempFileName();
             patch.Generate(tmpFile, true);
+            var patchContent = File.ReadAllText(tmpFile);
 
             using var lockWatcher = repo.LockWatcher();
-            await new Commands.Apply(repo.FullPath, tmpFile, true, "nowarn", "--reverse").ExecAsync();
+            await new Commands.Apply(repo.FullPath, patchContent, true, "nowarn", "--reverse").ExecAsync();
 
             vm.BlockNavigation.UpdateByChunk(chunk);
             repo.MarkWorkingCopyDirtyManually();

@@ -31,14 +31,11 @@ namespace SourceGit.Commands
 
             if (!string.IsNullOrEmpty(message))
             {
-                string tmp = Path.GetTempFileName();
-                await File.WriteAllTextAsync(tmp, message);
-                builder.Append(" -F ").Append(tmp.Quoted());
+                Stdin = message;
+                builder.Append(" -F -");
 
                 Args = builder.ToString();
-                var succ = await ExecAsync().ConfigureAwait(false);
-                File.Delete(tmp);
-                return succ;
+                return await ExecAsync().ConfigureAwait(false);
             }
 
             builder.Append(" -m ");

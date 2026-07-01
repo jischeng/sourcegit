@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
+using System.Threading;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -30,11 +30,9 @@ namespace SourceGit.Commands
 
             try
             {
-                using var proc = new Process();
-                proc.StartInfo = CreateGitStartInfo(true);
-                proc.Start();
+                using var proc = Runner.Start(BuildSpec());
 
-                while (await proc.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { } line)
+                while (await proc.Stdout.ReadLineAsync().ConfigureAwait(false) is { } line)
                 {
                     var match = REG_FORMAT().Match(line);
                     if (!match.Success)
@@ -57,7 +55,7 @@ namespace SourceGit.Commands
                     outs.Add(obj);
                 }
 
-                await proc.WaitForExitAsync().ConfigureAwait(false);
+                await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             }
             catch
             {

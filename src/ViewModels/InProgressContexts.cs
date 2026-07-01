@@ -78,7 +78,7 @@ namespace SourceGit.ViewModels
                 Args = "cherry-pick --abort",
             };
 
-            var headSHA = File.ReadAllText(Path.Combine(repo.GitDir, "CHERRY_PICK_HEAD")).Trim();
+            var headSHA = repo.FileSystem.ReadAllText(Path.Combine(repo.GitDir, "CHERRY_PICK_HEAD")).Trim();
             Head = new Commands.QuerySingleCommit(repo.FullPath, headSHA).GetResult() ?? new Models.Commit() { SHA = headSHA };
             HeadName = Head.GetFriendlyName();
         }
@@ -109,6 +109,7 @@ namespace SourceGit.ViewModels
         public RebaseInProgress(Repository repo)
         {
             _gitDir = repo.GitDir;
+            _fs = repo.FileSystem;
             Name = "Rebase";
 
             _continueCmd = new Commands.Command
@@ -134,21 +135,21 @@ namespace SourceGit.ViewModels
                 RaiseError = false,
             };
 
-            HeadName = File.ReadAllText(Path.Combine(repo.GitDir, "rebase-merge", "head-name")).Trim();
+            HeadName = repo.FileSystem.ReadAllText(Path.Combine(repo.GitDir, "rebase-merge", "head-name")).Trim();
             if (HeadName.StartsWith("refs/heads/"))
                 HeadName = HeadName.Substring(11);
             else if (HeadName.StartsWith("refs/tags/"))
                 HeadName = HeadName.Substring(10);
 
             var stoppedSHAPath = Path.Combine(repo.GitDir, "rebase-merge", "stopped-sha");
-            var stoppedSHA = File.Exists(stoppedSHAPath)
-                ? File.ReadAllText(stoppedSHAPath).Trim()
+            var stoppedSHA = repo.FileSystem.FileExists(stoppedSHAPath)
+                ? repo.FileSystem.ReadAllText(stoppedSHAPath).Trim()
                 : new Commands.QueryRevisionByRefName(repo.FullPath, HeadName).GetResult();
 
             if (!string.IsNullOrEmpty(stoppedSHA))
                 StoppedAt = new Commands.QuerySingleCommit(repo.FullPath, stoppedSHA).GetResult() ?? new Models.Commit() { SHA = stoppedSHA };
 
-            var ontoSHA = File.ReadAllText(Path.Combine(repo.GitDir, "rebase-merge", "onto")).Trim();
+            var ontoSHA = repo.FileSystem.ReadAllText(Path.Combine(repo.GitDir, "rebase-merge", "onto")).Trim();
             Onto = new Commands.QuerySingleCommit(repo.FullPath, ontoSHA).GetResult() ?? new Models.Commit() { SHA = ontoSHA };
             BaseName = Onto.GetFriendlyName();
         }
@@ -156,19 +157,20 @@ namespace SourceGit.ViewModels
         protected override void OnAborted()
         {
             var rebaseMergeDir = Path.Combine(_gitDir, "rebase-merge");
-            if (Directory.Exists(rebaseMergeDir))
-                Directory.Delete(rebaseMergeDir, true);
+            if (_fs.DirectoryExists(rebaseMergeDir))
+                _fs.DeleteDirectory(rebaseMergeDir, true);
 
             var rebaseApplyDir = Path.Combine(_gitDir, "rebase-apply");
-            if (Directory.Exists(rebaseApplyDir))
-                Directory.Delete(rebaseApplyDir, true);
+            if (_fs.DirectoryExists(rebaseApplyDir))
+                _fs.DeleteDirectory(rebaseApplyDir, true);
 
             var jobFile = Path.Combine(_gitDir, "sourcegit.interactive_rebase");
-            if (File.Exists(jobFile))
-                File.Delete(jobFile);
+            if (_fs.FileExists(jobFile))
+                _fs.DeleteFile(jobFile);
         }
 
         private readonly string _gitDir;
+        private readonly Models.IFileSystem _fs;
     }
 
     public class RevertInProgress : InProgressContext
@@ -204,7 +206,7 @@ namespace SourceGit.ViewModels
                 Args = "revert --abort",
             };
 
-            var headSHA = File.ReadAllText(Path.Combine(repo.GitDir, "REVERT_HEAD")).Trim();
+            var headSHA = repo.FileSystem.ReadAllText(Path.Combine(repo.GitDir, "REVERT_HEAD")).Trim();
             Head = new Commands.QuerySingleCommit(repo.FullPath, headSHA).GetResult() ?? new Models.Commit() { SHA = headSHA };
         }
     }
@@ -247,7 +249,7 @@ namespace SourceGit.ViewModels
 
             Current = new Commands.QueryCurrentBranch(repo.FullPath).GetResult();
 
-            var sourceSHA = File.ReadAllText(Path.Combine(repo.GitDir, "MERGE_HEAD")).Trim();
+            var sourceSHA = repo.FileSystem.ReadAllText(Path.Combine(repo.GitDir, "MERGE_HEAD")).Trim();
             Source = new Commands.QuerySingleCommit(repo.FullPath, sourceSHA).GetResult() ?? new Models.Commit() { SHA = sourceSHA };
             SourceName = Source.GetFriendlyName();
         }

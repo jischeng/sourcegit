@@ -57,12 +57,10 @@ namespace SourceGit.Commands
         {
             try
             {
-                using var proc = new Process();
-                proc.StartInfo = CreateGitStartInfo(true);
-                proc.Start();
+                using var proc = Runner.Start(BuildSpec());
 
                 using var ms = new MemoryStream();
-                await proc.StandardOutput.BaseStream.CopyToAsync(ms, CancellationToken).ConfigureAwait(false);
+                await proc.StdoutStream.CopyToAsync(ms, CancellationToken).ConfigureAwait(false);
 
                 if (ms.TryGetBuffer(out var buffer))
                 {

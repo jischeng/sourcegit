@@ -113,7 +113,19 @@ namespace SourceGit.Views
                 {
                     var change = vm.SelectedUnstaged[0];
                     var fullpath = Native.OS.GetAbsPath(vm.Repository.FullPath, change.Path);
-                    if (File.Exists(fullpath))
+                    if (vm.Repository.IsRemote)
+                    {
+                        try
+                        {
+                            using var stream = vm.Repository.FileSystem.OpenRead(fullpath);
+                            var tmp = Path.GetTempFileName();
+                            await using (var fs = File.Create(tmp))
+                                await stream.CopyToAsync(fs);
+                            Native.OS.OpenWithDefaultEditor(tmp);
+                        }
+                        catch { }
+                    }
+                    else if (File.Exists(fullpath))
                         Native.OS.OpenWithDefaultEditor(fullpath);
                     e.Handled = true;
                 }
@@ -152,7 +164,19 @@ namespace SourceGit.Views
                 {
                     var change = vm.SelectedStaged[0];
                     var fullpath = Native.OS.GetAbsPath(vm.Repository.FullPath, change.Path);
-                    if (File.Exists(fullpath))
+                    if (vm.Repository.IsRemote)
+                    {
+                        try
+                        {
+                            using var stream = vm.Repository.FileSystem.OpenRead(fullpath);
+                            var tmp = Path.GetTempFileName();
+                            await using (var fs = File.Create(tmp))
+                                await stream.CopyToAsync(fs);
+                            Native.OS.OpenWithDefaultEditor(tmp);
+                        }
+                        catch { }
+                    }
+                    else if (File.Exists(fullpath))
                         Native.OS.OpenWithDefaultEditor(fullpath);
                     e.Handled = true;
                 }
@@ -297,7 +321,7 @@ namespace SourceGit.Views
                 var explore = new MenuItem();
                 explore.Header = App.Text("RevealFile");
                 explore.Icon = this.CreateMenuIcon("Icons.Explore");
-                explore.IsEnabled = File.Exists(path) || Directory.Exists(path);
+                explore.IsEnabled = !repo.IsRemote && (File.Exists(path) || Directory.Exists(path));
                 explore.Click += (_, e) =>
                 {
                     var target = hasSelectedFolder ? Native.OS.GetAbsPath(repo.FullPath, selectedSingleFolder) : path;
@@ -791,7 +815,7 @@ namespace SourceGit.Views
                     var explore = new MenuItem();
                     explore.Header = App.Text("RevealFile");
                     explore.Icon = this.CreateMenuIcon("Icons.Explore");
-                    explore.IsEnabled = Directory.Exists(dir);
+                    explore.IsEnabled = !repo.IsRemote && Directory.Exists(dir);
                     explore.Click += (_, e) =>
                     {
                         Native.OS.OpenInFileManager(dir);
@@ -984,7 +1008,7 @@ namespace SourceGit.Views
                 };
 
                 var explore = new MenuItem();
-                explore.IsEnabled = File.Exists(path) || Directory.Exists(path);
+                explore.IsEnabled = !repo.IsRemote && (File.Exists(path) || Directory.Exists(path));
                 explore.Header = App.Text("RevealFile");
                 explore.Icon = this.CreateMenuIcon("Icons.Explore");
                 explore.Click += (_, e) =>
@@ -1199,7 +1223,7 @@ namespace SourceGit.Views
                 {
                     var dir = Path.Combine(repo.FullPath, selectedSingleFolder);
                     var explore = new MenuItem();
-                    explore.IsEnabled = Directory.Exists(dir);
+                    explore.IsEnabled = !repo.IsRemote && Directory.Exists(dir);
                     explore.Header = App.Text("RevealFile");
                     explore.Icon = this.CreateMenuIcon("Icons.Explore");
                     explore.Click += (_, e) =>

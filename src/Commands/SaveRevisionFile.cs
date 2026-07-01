@@ -1,6 +1,6 @@
-﻿using System;
-using System.Diagnostics;
+using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SourceGit.Commands
@@ -27,31 +27,27 @@ namespace SourceGit.Commands
 
         private static async Task ExecCmdAsync(string repo, string args, string outputFile, Stream input = null)
         {
-            var starter = new ProcessStartInfo();
-            starter.WorkingDirectory = repo;
-            starter.FileName = Native.OS.GitExecutable;
-            starter.Arguments = args;
-            starter.UseShellExecute = false;
-            starter.CreateNoWindow = true;
-            starter.WindowStyle = ProcessWindowStyle.Hidden;
-            starter.RedirectStandardInput = true;
-            starter.RedirectStandardOutput = true;
-            starter.RedirectStandardError = true;
+            var spec = new Command.RunSpec
+            {
+                Args = args,
+                WorkingDirectory = repo,
+                RedirectStandardInput = true,
+            };
 
             await using (var sw = File.Create(outputFile))
             {
                 try
                 {
-                    using var proc = Process.Start(starter)!;
+                    using var proc = (CommandRunnerRegistry.Get(repo) ?? LocalCommandRunner.Instance).Start(spec);
 
                     if (input != null)
                     {
                         var inputString = await new StreamReader(input).ReadToEndAsync().ConfigureAwait(false);
-                        await proc.StandardInput.WriteAsync(inputString).ConfigureAwait(false);
+                        await proc.Stdin.WriteAsync(inputString).ConfigureAwait(false);
                     }
 
-                    await proc.StandardOutput.BaseStream.CopyToAsync(sw).ConfigureAwait(false);
-                    await proc.WaitForExitAsync().ConfigureAwait(false);
+                    await proc.StdoutStream.CopyToAsync(sw).ConfigureAwait(false);
+                    await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception e)
                 {

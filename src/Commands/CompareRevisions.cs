@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
+using System.Threading;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -35,11 +35,9 @@ namespace SourceGit.Commands
             var changes = new List<Models.Change>();
             try
             {
-                using var proc = new Process();
-                proc.StartInfo = CreateGitStartInfo(true);
-                proc.Start();
+                using var proc = Runner.Start(BuildSpec());
 
-                while (await proc.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { } line)
+                while (await proc.Stdout.ReadLineAsync().ConfigureAwait(false) is { } line)
                 {
                     var match = REG_FORMAT().Match(line);
                     if (!match.Success)
@@ -80,7 +78,7 @@ namespace SourceGit.Commands
                     }
                 }
 
-                await proc.WaitForExitAsync().ConfigureAwait(false);
+                await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
 
                 changes.Sort((l, r) => Models.NumericSort.Compare(l.Path, r.Path));
             }

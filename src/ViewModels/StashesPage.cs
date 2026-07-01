@@ -244,15 +244,20 @@ namespace SourceGit.ViewModels
             var saveTo = Path.GetTempFileName();
             var succ = await Commands.SaveChangesAsPatch.ProcessStashChangesAsync(_repo.FullPath, opts, saveTo);
             if (!succ)
+            {
+                File.Delete(saveTo);
                 return;
+            }
+
+            var patch = File.ReadAllText(saveTo);
+            File.Delete(saveTo);
 
             var log = _repo.CreateLog($"Apply changes from '{_selectedStash.Name}'");
-            await new Commands.Apply(_repo.FullPath, saveTo, true, string.Empty, string.Empty)
+            await new Commands.Apply(_repo.FullPath, patch, true, string.Empty, string.Empty)
                 .Use(log)
                 .ExecAsync();
 
             log.Complete();
-            File.Delete(saveTo);
         }
 
         private void RefreshVisible()

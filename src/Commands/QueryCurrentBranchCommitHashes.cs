@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SourceGit.Commands
@@ -19,14 +19,12 @@ namespace SourceGit.Commands
 
             try
             {
-                using var proc = new Process();
-                proc.StartInfo = CreateGitStartInfo(true);
-                proc.Start();
+                using var proc = Runner.Start(BuildSpec());
 
-                while (await proc.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { Length: > 8 } line)
+                while (await proc.Stdout.ReadLineAsync().ConfigureAwait(false) is { Length: > 8 } line)
                     outs.Add(line);
 
-                await proc.WaitForExitAsync().ConfigureAwait(false);
+                await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             }
             catch
             {

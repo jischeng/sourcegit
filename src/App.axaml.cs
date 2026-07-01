@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Avalonia;
@@ -36,7 +37,13 @@ namespace SourceGit
 
             try
             {
-                if (TryLaunchAsRebaseTodoEditor(args, out int exitTodo))
+                if (TryLaunchAsRemoteSelfTest(args, out int exitSelfTest))
+                    Environment.Exit(exitSelfTest);
+                else if (TryLaunchAsRemoteServerVersion(args, out int exitVersion))
+                    Environment.Exit(exitVersion);
+                else if (TryLaunchAsRemoteServer(args, out int exitRemote))
+                    Environment.Exit(exitRemote);
+                else if (TryLaunchAsRebaseTodoEditor(args, out int exitTodo))
                     Environment.Exit(exitTodo);
                 else if (TryLaunchAsRebaseMessageEditor(args, out int exitMessage))
                     Environment.Exit(exitMessage);
@@ -275,6 +282,126 @@ namespace SourceGit
         #endregion
 
         #region Launch Ways
+        private static bool TryLaunchAsRemoteServerVersion(string[] args, out int exitCode)
+        {
+            exitCode = -1;
+
+            if (args.Length == 0 || !args[0].Equals("--remote-server-version", StringComparison.Ordinal))
+                return false;
+
+            // One-shot version probe used by the client to decide whether the deployed
+            // server binary is stale and needs re-uploading. Prints the friendly build
+            // version (git describe) and exits.
+            Console.Out.WriteLine(Native.OS.GetAppVersion());
+            exitCode = 0;
+            return true;
+        }
+
+        private static bool TryLaunchAsRemoteServer(string[] args, out int exitCode)
+        {
+            exitCode = -1;
+
+            if (args.Length == 0 || !args[0].Equals("--remote-server", StringComparison.Ordinal))
+                return false;
+
+            // Run as a headless JSON-RPC server over stdio (typically launched via
+            // `ssh <host> sourcegit --remote-server`). No Avalonia desktop lifetime,
+            // no window; the loop blocks on stdin until the SSH channel closes.
+            var server = new Remote.RpcServer();
+            exitCode = server.Run();
+            return true;
+        }
+
+        private static bool TryLaunchAsRemoteSelfTest(string[] args, out int exitCode)
+        {
+            exitCode = -1;
+
+            if (args.Length == 0 || !args[0].Equals("--remote-selftest", StringComparison.Ordinal))
+                return false;
+
+            // Development/verification helper: spin up a local server and drive it through
+            // RemoteCommandRunner, exercising Start/ReadToEnd/ExecAsync. Not shipped UX.
+            exitCode = RunRemoteSelfTestAsync(args).GetAwaiter().GetResult();
+            return true;
+        }
+
+        private static async Task<int> RunRemoteSelfTestAsync(string[] args)
+        {
+            var dll = Path.Combine(AppContext.BaseDirectory, "SourceGit.dll");
+            var dotnet = Environment.ProcessPath ?? "dotnet";
+            var workingDir = args.Length > 1 ? args[1] : Directory.GetCurrentDirectory();
+
+            using var conn = new Remote.LocalProcessConnection(dotnet, $"\"{dll}\" --remote-server");
+            using var client = new Remote.RpcClient(conn.Input, conn.Output);
+            var runner = new Remote.RemoteCommandRunner(client);
+
+            Console.Out.WriteLine($"[selftest] working_dir={workingDir}");
+
+            var spec = new Commands.Command.RunSpec { Args = "log --oneline -3", WorkingDirectory = workingDir };
+            using (var proc = runner.Start(spec))
+            {
+                while (await proc.Stdout.ReadLineAsync() is { } line)
+                    Console.Out.WriteLine($"[selftest] log: {line}");
+                await proc.WaitForExitAsync(CancellationToken.None);
+                Console.Out.WriteLine($"[selftest] exit={proc.ExitCode}");
+            }
+
+            var rs = runner.ReadToEnd(new Commands.Command.RunSpec { Args = "status --porcelain", WorkingDirectory = workingDir });
+            Console.Out.WriteLine($"[selftest] status isSuccess={rs.IsSuccess} stdout={rs.StdOut.Trim()}");
+
+            var ok = await runner.ExecAsync(
+                new Commands.Command.RunSpec { Args = "branch --list", WorkingDirectory = workingDir },
+                line => Console.Out.WriteLine($"[selftest] branch: {line}"),
+                CancellationToken.None);
+            Console.Out.WriteLine($"[selftest] branch exec ok={ok}");
+
+            var fs = new Remote.RemoteFileSystem(client);
+            var readme = Path.Combine(workingDir, "README.md");
+            var version = Path.Combine(workingDir, "VERSION");
+            Console.Out.WriteLine($"[selftest] fs.FileExists(README)={fs.FileExists(readme)}");
+            Console.Out.WriteLine($"[selftest] fs.ReadAllText(VERSION)={fs.ReadAllText(version)}");
+            var tmp = fs.CreateTempFile("hello-remote");
+            Console.Out.WriteLine($"[selftest] fs.CreateTempFile={tmp} readback={fs.ReadAllText(tmp)}");
+            fs.DeleteFile(tmp);
+            Console.Out.WriteLine($"[selftest] fs deleted tmp exists={fs.FileExists(tmp)}");
+
+            // stdin (commit message via -F -, pathspec via --pathspec-from-file=-)
+            var stdinRS = runner.ReadToEnd(new Commands.Command.RunSpec
+            {
+                Args = "hash-object --stdin",
+                WorkingDirectory = workingDir,
+                StdinContent = "hello-stdin",
+            });
+            Console.Out.WriteLine($"[selftest] hash-object --stdin stdout={stdinRS.StdOut.Trim()} ok={stdinRS.IsSuccess}");
+
+            // directory browsing (powers the remote folder picker)
+            var home = client.Call("home_dir", new { })?["path"]?.GetValue<string>();
+            Console.Out.WriteLine($"[selftest] home_dir={home}");
+            var listing = client.Call("list_dir", new { path = workingDir });
+            var entryCount = listing?["entries"]?.AsArray().Count ?? -1;
+            Console.Out.WriteLine($"[selftest] list_dir({workingDir}) path={listing?["path"]?.GetValue<string>()} entries={entryCount}");
+
+            // watch (server FSW pushes watch_event notifications back to the client)
+            var gotWatch = new ManualResetEventSlim(false);
+            client.NotificationReceived += (method, pars) =>
+            {
+                if (method == "watch_event")
+                {
+                    Console.Out.WriteLine($"[selftest] watch_event file={pars?["file"]?.GetValue<string>()}");
+                    gotWatch.Set();
+                }
+            };
+            client.Call("watch_start", new { path = workingDir });
+            var watchTestFile = Path.Combine(workingDir, ".watch_selftest");
+            File.WriteAllText(watchTestFile, "trigger");
+            gotWatch.Wait(TimeSpan.FromSeconds(3));
+            File.Delete(watchTestFile);
+            client.Call("watch_stop", new { path = workingDir });
+            Console.Out.WriteLine($"[selftest] watch notification received={gotWatch.IsSet}");
+
+            return 0;
+        }
+
         private static bool TryLaunchAsRebaseTodoEditor(string[] args, out int exitCode)
         {
             exitCode = -1;

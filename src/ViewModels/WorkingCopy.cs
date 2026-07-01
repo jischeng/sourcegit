@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -327,15 +328,11 @@ namespace SourceGit.ViewModels
             using var lockWatcher = _repo.LockWatcher();
 
             var log = _repo.CreateLog("Stage");
-            var pathSpecFile = Path.GetTempFileName();
-            await using (var writer = new StreamWriter(pathSpecFile))
-            {
-                foreach (var c in canStaged)
-                    await writer.WriteLineAsync(c.Path);
-            }
+            var pathspec = new StringBuilder();
+            foreach (var c in canStaged)
+                pathspec.Append(c.Path).Append('\n');
 
-            await new Commands.Add(_repo.FullPath, pathSpecFile).Use(log).ExecAsync();
-            File.Delete(pathSpecFile);
+            await new Commands.Add(_repo.FullPath, pathspec.ToString()).Use(log).ExecAsync();
             log.Complete();
 
             _repo.MarkWorkingCopyDirtyManually();
@@ -361,19 +358,15 @@ namespace SourceGit.ViewModels
             }
             else
             {
-                var pathSpecFile = Path.GetTempFileName();
-                await using (var writer = new StreamWriter(pathSpecFile))
+                var pathspec = new StringBuilder();
+                foreach (var c in changes)
                 {
-                    foreach (var c in changes)
-                    {
-                        await writer.WriteLineAsync(c.Path);
-                        if (c.Index == Models.ChangeState.Renamed)
-                            await writer.WriteLineAsync(c.OriginalPath);
-                    }
+                    pathspec.Append(c.Path).Append('\n');
+                    if (c.Index == Models.ChangeState.Renamed)
+                        pathspec.Append(c.OriginalPath).Append('\n');
                 }
 
-                await new Commands.Reset(_repo.FullPath, pathSpecFile).Use(log).ExecAsync();
-                File.Delete(pathSpecFile);
+                await new Commands.Reset(_repo.FullPath, pathspec.ToString()).Use(log).ExecAsync();
             }
             log.Complete();
 
@@ -415,8 +408,8 @@ namespace SourceGit.ViewModels
                 if (change.ConflictReason is Models.ConflictReason.BothDeleted or Models.ConflictReason.DeletedByThem or Models.ConflictReason.AddedByUs)
                 {
                     var fullpath = Path.Combine(_repo.FullPath, change.Path);
-                    if (File.Exists(fullpath))
-                        File.Delete(fullpath);
+                    if (_repo.FileSystem.FileExists(fullpath))
+                        _repo.FileSystem.DeleteFile(fullpath);
 
                     needStage.Add(change.Path);
                 }
@@ -435,10 +428,10 @@ namespace SourceGit.ViewModels
 
             if (needStage.Count > 0)
             {
-                var pathSpecFile = Path.GetTempFileName();
-                await File.WriteAllLinesAsync(pathSpecFile, needStage);
-                await new Commands.Add(_repo.FullPath, pathSpecFile).Use(log).ExecAsync();
-                File.Delete(pathSpecFile);
+                var pathspec = new StringBuilder();
+                foreach (var p in needStage)
+                    pathspec.Append(p).Append('\n');
+                await new Commands.Add(_repo.FullPath, pathspec.ToString()).Use(log).ExecAsync();
             }
 
             log.Complete();
@@ -461,8 +454,8 @@ namespace SourceGit.ViewModels
                 if (change.ConflictReason is Models.ConflictReason.BothDeleted or Models.ConflictReason.DeletedByUs or Models.ConflictReason.AddedByThem)
                 {
                     var fullpath = Path.Combine(_repo.FullPath, change.Path);
-                    if (File.Exists(fullpath))
-                        File.Delete(fullpath);
+                    if (_repo.FileSystem.FileExists(fullpath))
+                        _repo.FileSystem.DeleteFile(fullpath);
 
                     needStage.Add(change.Path);
                 }
@@ -481,10 +474,10 @@ namespace SourceGit.ViewModels
 
             if (needStage.Count > 0)
             {
-                var pathSpecFile = Path.GetTempFileName();
-                await File.WriteAllLinesAsync(pathSpecFile, needStage);
-                await new Commands.Add(_repo.FullPath, pathSpecFile).Use(log).ExecAsync();
-                File.Delete(pathSpecFile);
+                var pathspec = new StringBuilder();
+                foreach (var p in needStage)
+                    pathspec.Append(p).Append('\n');
+                await new Commands.Add(_repo.FullPath, pathspec.ToString()).Use(log).ExecAsync();
             }
 
             log.Complete();
@@ -509,8 +502,8 @@ namespace SourceGit.ViewModels
                 IsCommitting = true;
 
                 var mergeMsgFile = Path.Combine(_repo.GitDir, "MERGE_MSG");
-                if (File.Exists(mergeMsgFile) && !string.IsNullOrWhiteSpace(_commitMessage))
-                    await File.WriteAllTextAsync(mergeMsgFile, _commitMessage);
+                if (_repo.FileSystem.FileExists(mergeMsgFile) && !string.IsNullOrWhiteSpace(_commitMessage))
+                    await _repo.FileSystem.WriteAllTextAsync(mergeMsgFile, _commitMessage);
 
                 var log = _repo.CreateLog($"Continue {_inProgressContext.Name}");
                 await _inProgressContext.ContinueAsync(log);
@@ -738,13 +731,13 @@ namespace SourceGit.ViewModels
         {
             var oldType = _inProgressContext != null ? _inProgressContext.GetType() : null;
 
-            if (File.Exists(Path.Combine(_repo.GitDir, "CHERRY_PICK_HEAD")))
+            if (_repo.FileSystem.FileExists(Path.Combine(_repo.GitDir, "CHERRY_PICK_HEAD")))
                 InProgressContext = new CherryPickInProgress(_repo);
-            else if (Directory.Exists(Path.Combine(_repo.GitDir, "rebase-merge")) || Directory.Exists(Path.Combine(_repo.GitDir, "rebase-apply")))
+            else if (_repo.FileSystem.DirectoryExists(Path.Combine(_repo.GitDir, "rebase-merge")) || _repo.FileSystem.DirectoryExists(Path.Combine(_repo.GitDir, "rebase-apply")))
                 InProgressContext = new RebaseInProgress(_repo);
-            else if (File.Exists(Path.Combine(_repo.GitDir, "REVERT_HEAD")))
+            else if (_repo.FileSystem.FileExists(Path.Combine(_repo.GitDir, "REVERT_HEAD")))
                 InProgressContext = new RevertInProgress(_repo);
-            else if (File.Exists(Path.Combine(_repo.GitDir, "MERGE_HEAD")))
+            else if (_repo.FileSystem.FileExists(Path.Combine(_repo.GitDir, "MERGE_HEAD")))
                 InProgressContext = new MergeInProgress(_repo);
             else
                 InProgressContext = null;
@@ -766,10 +759,10 @@ namespace SourceGit.ViewModels
 
         private bool LoadCommitMessageFromFile(string file)
         {
-            if (!File.Exists(file))
+            if (!_repo.FileSystem.FileExists(file))
                 return false;
 
-            var msg = File.ReadAllText(file).Trim();
+            var msg = _repo.FileSystem.ReadAllText(file).Trim();
             if (string.IsNullOrEmpty(msg))
                 return false;
 

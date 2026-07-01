@@ -36,7 +36,7 @@ namespace SourceGit.Commands
 
             try
             {
-                Process.Start(CreateGitStartInfo(false));
+                Runner.StartDetached(BuildSpec());
             }
             catch (Exception ex)
             {

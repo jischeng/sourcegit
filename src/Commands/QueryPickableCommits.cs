@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SourceGit.Commands
@@ -19,11 +19,9 @@ namespace SourceGit.Commands
             var commits = new List<Models.Commit>();
             try
             {
-                using var proc = new Process();
-                proc.StartInfo = CreateGitStartInfo(true);
-                proc.Start();
+                using var proc = Runner.Start(BuildSpec());
 
-                while (await proc.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { } line)
+                while (await proc.Stdout.ReadLineAsync().ConfigureAwait(false) is { } line)
                 {
                     var parts = line.Split('\0');
                     if (parts.Length != 8)
@@ -40,7 +38,7 @@ namespace SourceGit.Commands
                     commits.Add(commit);
                 }
 
-                await proc.WaitForExitAsync().ConfigureAwait(false);
+                await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception e)
             {

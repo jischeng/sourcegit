@@ -52,5 +52,12 @@ namespace SourceGit.Views
 
             e.Handled = true;
         }
+
+        private void OnBrowseRemotePath(object _1, RoutedEventArgs e)
+        {
+            if (DataContext is ViewModels.OpenLocalRepository vm)
+                vm.BrowseRemotePath();
+            e.Handled = true;
+        }
     }
 }

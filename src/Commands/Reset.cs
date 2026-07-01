@@ -1,4 +1,4 @@
-﻿namespace SourceGit.Commands
+namespace SourceGit.Commands
 {
     public class Reset : Command
     {
@@ -13,7 +13,8 @@
         {
             WorkingDirectory = repo;
             Context = repo;
-            Args = $"reset --pathspec-from-file={pathspec.Quoted()}";
+            Stdin = pathspec;
+            Args = "reset --pathspec-from-file=-";
         }
     }
 }
