@@ -14,8 +14,7 @@
                     x:Name="ThisControl"
                     Icon="/App.ico"
                     Title="{DynamicResource Text.Preferences}"
-                    Width="720" Height="640"
-                    SizeToContent="Manual"
+                    SizeToContent="WidthAndHeight"
                     CanResize="False"
                     WindowStartupLocation="CenterScreen">
   <Grid RowDefinitions="Auto,Auto" MinWidth="600">
@@ -1014,7 +1013,7 @@
 
               <ContentControl.DataTemplates>
                 <DataTemplate DataType="m:RemoteHost">
-                  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*">
+                  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                     <TextBlock Grid.Row="0" Text="{DynamicResource Text.Preferences.RemoteHosts.Name}"/>
                     <TextBox Grid.Row="1" Margin="0,4,0,0" CornerRadius="3" Height="28" Text="{Binding Name, Mode=TwoWay}"/>
 
@@ -1086,9 +1085,11 @@
                                IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 
                     <Border Grid.Row="6" Margin="0,8,0,0"
+                            Height="160"
                             BorderThickness="1" BorderBrush="{DynamicResource Brush.Border1}"
                             CornerRadius="3" Background="{DynamicResource Brush.Contents}"
-                            IsVisible="{Binding StatusLogText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            IsVisible="{Binding StatusLogText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            ClipToBounds="True">
                       <TextBox Margin="0" Padding="4"
                                Text="{Binding StatusLogText, Mode=OneWay}"
                                IsReadOnly="True"
