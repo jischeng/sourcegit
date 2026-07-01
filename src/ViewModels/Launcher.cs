@@ -293,7 +293,9 @@ namespace SourceGit.ViewModels
         {
             foreach (var one in Pages)
             {
-                if (one.Node.Id == node.Id)
+                // Skip the page being re-opened (e.g. Reset reuses the same page); otherwise
+                // the duplicate check would short-circuit and leave it stuck in loading state.
+                if (one.Node.Id == node.Id && !ReferenceEquals(one, page))
                 {
                     ActivePage = one;
                     return;
