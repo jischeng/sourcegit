@@ -372,6 +372,60 @@ namespace SourceGit.ViewModels
         /// </summary>
         private void OpenRemoteRepositoryInTab(RepositoryNode node, LauncherPage page)
         {
+            // Fast path: the host is already connected, so opening is just a couple of quick
+            // RPC probes. Do it synchronously to avoid the loading-page flash; the UI stays
+            // responsive enough because no SSH connect is needed.
+            if (Remote.RemoteHostManager.Instance.GetConnectedSession(node.RemoteHost) != null)
+            {
+                Repository repo;
+                try
+                {
+                    repo = Remote.RemoteRepositoryOpener.Open(node.RemoteHost, node.Id);
+                }
+                catch (Exception ex)
+                {
+                    ActivePage.Notifications.Add(new Models.Notification
+                    {
+                        Group = node.Id,
+                        Message = $"Failed to open remote repository: {ex.Message}",
+                        IsError = true,
+                    });
+                    return;
+                }
+
+                repo.Open();
+
+                if (page == null)
+                {
+                    if (_activePage == null || _activePage.Node.IsRepository || _activePage.Data is LoadingRemoteRepository)
+                    {
+                        page = new LauncherPage(node, repo);
+                        Pages.Add(page);
+                    }
+                    else
+                    {
+                        page = _activePage;
+                        page.Node = node;
+                        page.Data = repo;
+                    }
+                }
+                else
+                {
+                    page.Node = node;
+                    page.Data = repo;
+                }
+
+                RebuildWorkspaceRepositoryList();
+
+                if (_activePage == page)
+                    PostActivePageChanged();
+                else
+                    ActivePage = page;
+                return;
+            }
+
+            // Slow path: need to establish SSH connection. Show a loading page immediately and
+            // do the connect/probe on a background thread so the UI never blocks.
             var hostDisplay = node.RemoteHost?.Name ?? node.RemoteHost?.Host ?? string.Empty;
             var loading = new LoadingRemoteRepository
             {
