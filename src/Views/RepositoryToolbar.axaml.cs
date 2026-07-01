@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -21,8 +22,7 @@ namespace SourceGit.Views
             if (sender is Button button && DataContext is ViewModels.Repository repo)
             {
                 var fullpath = repo.FullPath;
-
-                if (!System.IO.Directory.Exists(fullpath))
+                if (!Directory.Exists(fullpath))
                     return;
 
                 var menu = new ContextMenu();

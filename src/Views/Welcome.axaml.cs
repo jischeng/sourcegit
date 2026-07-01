@@ -1,5 +1,7 @@
 using System;
+using System.IO;
 using System.Threading;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -148,72 +150,6 @@ namespace SourceGit.Views
             {
                 var menu = new ContextMenu();
 
-                if (!node.IsRepository && node.SubNodes.Count > 0)
-                {
-                    var openAll = new MenuItem();
-                    openAll.Header = App.Text("Welcome.OpenAllInNode");
-                    openAll.Icon = this.CreateMenuIcon("Icons.Folder.Open");
-                    openAll.Click += (_, e) =>
-                    {
-                        node.Open();
-                        e.Handled = true;
-                    };
-
-                    menu.Items.Add(openAll);
-                    menu.Items.Add(new MenuItem() { Header = "-" });
-                }
-
-                if (node.IsRepository)
-                {
-                    var open = new MenuItem();
-                    open.Header = App.Text("Welcome.OpenOrInit");
-                    open.Icon = this.CreateMenuIcon("Icons.Folder.Open");
-                    open.Click += (_, e) =>
-                    {
-                        node.Open();
-                        e.Handled = true;
-                    };
-
-                    menu.Items.Add(open);
-                    menu.Items.Add(new MenuItem() { Header = "-" });
-
-                    if (!node.IsInvalid)
-                    {
-                        var explore = new MenuItem();
-                        explore.Header = App.Text("Repository.Explore");
-                        explore.Icon = this.CreateMenuIcon("Icons.Explore");
-                        explore.Click += (_, e) =>
-                        {
-                            node.OpenInFileManager();
-                            e.Handled = true;
-                        };
-
-                        var terminal = new MenuItem();
-                        terminal.Header = App.Text("Repository.Terminal");
-                        terminal.Icon = this.CreateMenuIcon("Icons.Terminal");
-                        terminal.Click += (_, e) =>
-                        {
-                            node.OpenTerminal();
-                            e.Handled = true;
-                        };
-                        menu.Items.Add(explore);
-                        menu.Items.Add(terminal);
-                        menu.Items.Add(new MenuItem() { Header = "-" });
-                    }
-                }
-                else
-                {
-                    var addSubFolder = new MenuItem();
-                    addSubFolder.Header = App.Text("Welcome.AddSubFolder");
-                    addSubFolder.Icon = this.CreateMenuIcon("Icons.Folder.Add");
-                    addSubFolder.Click += (_, e) =>
-                    {
-                        node.AddSubFolder();
-                        e.Handled = true;
-                    };
-                    menu.Items.Add(addSubFolder);
-                }
-
                 var edit = new MenuItem();
                 edit.Header = App.Text("Welcome.Edit");
                 edit.Icon = this.CreateMenuIcon("Icons.Edit");
@@ -241,10 +177,82 @@ namespace SourceGit.Views
                     e.Handled = true;
                 };
 
-                menu.Items.Add(edit);
-                menu.Items.Add(move);
-                menu.Items.Add(new MenuItem() { Header = "-" });
-                menu.Items.Add(delete);
+                if (!node.IsRepository)
+                {
+                    if (node.SubNodes.Count > 0)
+                    {
+                        var openAll = new MenuItem();
+                        openAll.Header = App.Text("Welcome.OpenAllInNode");
+                        openAll.Icon = this.CreateMenuIcon("Icons.Folder.Open");
+                        openAll.Click += (_, e) =>
+                        {
+                            node.Open();
+                            e.Handled = true;
+                        };
+
+                        menu.Items.Add(openAll);
+                        menu.Items.Add(new MenuItem() { Header = "-" });
+                    }
+
+                    var addSubFolder = new MenuItem();
+                    addSubFolder.Header = App.Text("Welcome.AddSubFolder");
+                    addSubFolder.Icon = this.CreateMenuIcon("Icons.Folder.Add");
+                    addSubFolder.Click += (_, e) =>
+                    {
+                        node.AddSubFolder();
+                        e.Handled = true;
+                    };
+
+                    menu.Items.Add(addSubFolder);
+                    menu.Items.Add(edit);
+                    menu.Items.Add(move);
+                    menu.Items.Add(new MenuItem() { Header = "-" });
+                    menu.Items.Add(delete);
+                }
+                else if (Directory.Exists(node.Id))
+                {
+                    var open = new MenuItem();
+                    open.Header = App.Text("Welcome.OpenOrInit");
+                    open.Icon = this.CreateMenuIcon("Icons.Folder.Open");
+                    open.Click += (_, e) =>
+                    {
+                        node.Open();
+                        e.Handled = true;
+                    };
+
+                    var explore = new MenuItem();
+                    explore.Header = App.Text("Repository.Explore");
+                    explore.Icon = this.CreateMenuIcon("Icons.Explore");
+                    explore.Click += (_, e) =>
+                    {
+                        node.OpenInFileManager();
+                        e.Handled = true;
+                    };
+
+                    var terminal = new MenuItem();
+                    terminal.Header = App.Text("Repository.Terminal");
+                    terminal.Icon = this.CreateMenuIcon("Icons.Terminal");
+                    terminal.Click += (_, e) =>
+                    {
+                        node.OpenTerminal();
+                        e.Handled = true;
+                    };
+
+                    menu.Items.Add(open);
+                    menu.Items.Add(new MenuItem() { Header = "-" });
+                    menu.Items.Add(explore);
+                    menu.Items.Add(terminal);
+                    menu.Items.Add(new MenuItem() { Header = "-" });
+                    menu.Items.Add(edit);
+                    menu.Items.Add(move);
+                    menu.Items.Add(new MenuItem() { Header = "-" });
+                    menu.Items.Add(delete);
+                }
+                else
+                {
+                    menu.Items.Add(delete);
+                }
+
                 menu.Open(grid);
             }
 
