@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace SourceGit.Remote
 {
@@ -112,9 +113,13 @@ namespace SourceGit.Remote
                 if (p == null)
                     return (string.Empty, -1);
 
-                var stdout = p.StandardOutput.ReadToEnd();
+                // Drain both streams concurrently; reading only stdout can deadlock if the
+                // remote command writes enough to stderr to fill the OS pipe buffer.
+                var stdoutTask = p.StandardOutput.ReadToEndAsync();
+                var stderrTask = p.StandardError.ReadToEndAsync();
                 p.WaitForExit();
-                return (stdout, p.ExitCode);
+                Task.WaitAll(stdoutTask, stderrTask);
+                return (stdoutTask.Result, p.ExitCode);
             }
             catch
             {
@@ -146,7 +151,12 @@ namespace SourceGit.Remote
                 if (p == null)
                     return -1;
 
+                // scp writes progress to stderr; if we don't drain both pipes the process
+                // blocks once the OS buffer fills (e.g. on a ~100MB server upload).
+                var stdoutTask = p.StandardOutput.ReadToEndAsync();
+                var stderrTask = p.StandardError.ReadToEndAsync();
                 p.WaitForExit();
+                Task.WaitAll(stdoutTask, stderrTask);
                 return p.ExitCode;
             }
             catch
