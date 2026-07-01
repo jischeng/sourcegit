@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 using SourceGit.Commands;
@@ -20,6 +21,11 @@ namespace SourceGit.Remote
     {
         public static Repository Open(Models.RemoteHost host, string remotePath)
         {
+            // Resolve to the instance stored in Preferences so connection state updates are
+            // visible in the settings page. Restored tabs carry a deserialized copy whose
+            // State/StatusMessage are never observed by the UI otherwise.
+            host = Preferences.Instance.RemoteHosts.FirstOrDefault(h => h.Host == host?.Host) ?? host;
+
             var session = RemoteHostManager.Instance.GetConnectedSession(host);
             if (session == null)
             {

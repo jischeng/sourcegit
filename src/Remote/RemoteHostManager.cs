@@ -34,7 +34,8 @@ namespace SourceGit.Remote
             if (host.State == Models.RemoteHostState.Connected)
                 return; // a connect finished while testing; don't clobber it
 
-            SetState(host, ok ? Models.RemoteHostState.Disconnected : Models.RemoteHostState.Failed, message);
+            SetState(host, ok ? Models.RemoteHostState.Disconnected : Models.RemoteHostState.Failed,
+                ok ? "SSH reachable — click Connect to use" : message);
         }
 
         /// <summary>

@@ -1031,18 +1031,6 @@
                                 PlaceholderText="{DynamicResource Text.Preferences.RemoteHosts.FromConfig}"/>
                     </Grid>
 
-                    <TextBlock Margin="0,12,0,0" Text="{DynamicResource Text.Preferences.RemoteHosts.Status}"/>
-                    <Border Margin="0,4,0,0" Height="28"
-                            BorderThickness="1" BorderBrush="{DynamicResource Brush.Border1}"
-                            CornerRadius="3" Background="{DynamicResource Brush.Contents}">
-                      <StackPanel Orientation="Horizontal" Margin="8,0" VerticalAlignment="Center">
-                        <Ellipse Width="9" Height="9" VerticalAlignment="Center" Fill="{Binding StatusBrush}"/>
-                        <TextBlock Margin="8,0,0,0" VerticalAlignment="Center"
-                                   Text="{Binding StatusMessage}" Foreground="{DynamicResource Brush.FG2}"
-                                   TextTrimming="CharacterEllipsis"/>
-                      </StackPanel>
-                    </Border>
-
                     <StackPanel Orientation="Horizontal" Margin="0,16,0,0" Spacing="8">
                       <Button Classes="flat" Height="28" MinWidth="76"
                               Click="OnTestRemoteHost"
@@ -1066,6 +1054,12 @@
                               IsVisible="{Binding IsConnected}"
                               Content="{DynamicResource Text.Preferences.RemoteHosts.Disconnect}"/>
                     </StackPanel>
+
+                    <TextBlock Margin="0,8,0,0"
+                               Text="{Binding StatusMessage}"
+                               Foreground="{DynamicResource Brush.FG2}"
+                               TextTrimming="CharacterEllipsis"
+                               IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                   </StackPanel>
                 </DataTemplate>
               </ContentControl.DataTemplates>
