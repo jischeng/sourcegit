@@ -41,8 +41,12 @@ namespace SourceGit.Remote
             // Use the streaming RPC so large outputs (git log) arrive in chunks instead of one
             // giant JSON string; the client-side process exposes a blocking stream that the
             // command parsers read line-by-line, exactly like a local git process.
+            var streamId = Guid.NewGuid().ToString();
+            var proc = new RemoteStreamProcess(_client, streamId);
+
             var parameters = new
             {
+                stream_id = streamId,
                 args = spec.Args,
                 working_dir = spec.WorkingDirectory,
                 ssh_key = spec.SSHKey,
@@ -50,12 +54,9 @@ namespace SourceGit.Remote
                 stdin = spec.StdinContent,
             };
 
-            var result = _client.Call("exec_git_stream", parameters);
-            var streamId = result?["stream_id"]?.GetValue<string>();
-            if (string.IsNullOrEmpty(streamId))
-                throw new Exception("remote server did not return a stream id");
-
-            return new RemoteStreamProcess(_client, streamId);
+            // The handler is already registered before the call, so no data chunks are lost.
+            _client.Call("exec_git_stream", parameters);
+            return proc;
         }
 
         public async Task<int> RunForExitCodeAsync(Command.RunSpec spec, CancellationToken ct)

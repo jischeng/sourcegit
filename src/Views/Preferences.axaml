@@ -1013,12 +1013,12 @@
 
               <ContentControl.DataTemplates>
                 <DataTemplate DataType="m:RemoteHost">
-                  <StackPanel Orientation="Vertical">
-                    <TextBlock Text="{DynamicResource Text.Preferences.RemoteHosts.Name}"/>
-                    <TextBox Margin="0,4,0,0" CornerRadius="3" Height="28" Text="{Binding Name, Mode=TwoWay}"/>
+                  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*">
+                    <TextBlock Grid.Row="0" Text="{DynamicResource Text.Preferences.RemoteHosts.Name}"/>
+                    <TextBox Grid.Row="1" Margin="0,4,0,0" CornerRadius="3" Height="28" Text="{Binding Name, Mode=TwoWay}"/>
 
-                    <TextBlock Margin="0,12,0,0" Text="{DynamicResource Text.Preferences.RemoteHosts.Host}"/>
-                    <Grid Margin="0,4,0,0" ColumnDefinitions="*,8,150">
+                    <TextBlock Grid.Row="2" Margin="0,12,0,0" Text="{DynamicResource Text.Preferences.RemoteHosts.Host}"/>
+                    <Grid Grid.Row="3" Margin="0,4,0,0" ColumnDefinitions="*,8,150">
                       <TextBox Grid.Column="0"
                                CornerRadius="3" Height="28"
                                Text="{Binding Host, Mode=TwoWay}"
@@ -1031,20 +1031,32 @@
                                 PlaceholderText="{DynamicResource Text.Preferences.RemoteHosts.FromConfig}"/>
                     </Grid>
 
-                    <Grid Margin="0,16,0,0" ColumnDefinitions="Auto,Auto,*,Auto,Auto">
-                      <!-- Destructive/long actions on the far left to avoid misclicks -->
+                    <Grid Grid.Row="4" Margin="0,16,0,0" ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+                      <!-- Destructive/long actions on the far left to avoid misclicks.
+                           Buttons stay in place (always visible) and just gray out when not
+                           applicable, so testing/refreshing doesn't shift the layout. -->
                       <Button Grid.Column="0" Classes="flat" Height="28" MinWidth="76"
                               Click="OnResetRemoteHost"
-                              IsVisible="{Binding IsConnected}"
-                              IsEnabled="{Binding !IsBusy}"
-                              Content="{DynamicResource Text.Preferences.RemoteHosts.Reset}"/>
+                              Content="{DynamicResource Text.Preferences.RemoteHosts.Reset}">
+                        <Button.IsEnabled>
+                          <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsConnected"/>
+                            <Binding Path="IsBusy" Converter="{x:Static BoolConverters.Not}"/>
+                          </MultiBinding>
+                        </Button.IsEnabled>
+                      </Button>
 
                       <Button Grid.Column="1" Classes="flat" Height="28" MinWidth="76"
                               Margin="8,0,0,0"
                               Click="OnDisconnectRemoteHost"
-                              IsVisible="{Binding IsConnected}"
-                              IsEnabled="{Binding !IsBusy}"
-                              Content="{DynamicResource Text.Preferences.RemoteHosts.Disconnect}"/>
+                              Content="{DynamicResource Text.Preferences.RemoteHosts.Disconnect}">
+                        <Button.IsEnabled>
+                          <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsConnected"/>
+                            <Binding Path="IsBusy" Converter="{x:Static BoolConverters.Not}"/>
+                          </MultiBinding>
+                        </Button.IsEnabled>
+                      </Button>
 
                       <!-- Test is always available so the user can check liveness/latency even when connected -->
                       <Button Grid.Column="3" Classes="flat" Height="28" MinWidth="76"
@@ -1055,22 +1067,28 @@
                       <Button Grid.Column="4" Classes="flat primary" Height="28" MinWidth="76"
                               Margin="8,0,0,0"
                               Click="OnConnectRemoteHost"
-                              IsVisible="{Binding !IsConnected}"
-                              IsEnabled="{Binding !IsBusy}"
-                              Content="{DynamicResource Text.Preferences.RemoteHosts.Connect}"/>
+                              Content="{DynamicResource Text.Preferences.RemoteHosts.Connect}">
+                        <Button.IsEnabled>
+                          <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsConnected" Converter="{x:Static BoolConverters.Not}"/>
+                            <Binding Path="IsBusy" Converter="{x:Static BoolConverters.Not}"/>
+                          </MultiBinding>
+                        </Button.IsEnabled>
+                      </Button>
                     </Grid>
 
-                    <TextBlock Margin="0,8,0,0"
+                    <TextBlock Grid.Row="5" Margin="0,8,0,0"
                                Text="{Binding StatusMessage}"
                                Foreground="{Binding StatusBrush}"
                                TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Top"
                                IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 
-                    <Border Margin="0,8,0,0"
+                    <Border Grid.Row="6" Margin="0,8,0,0"
                             BorderThickness="1" BorderBrush="{DynamicResource Brush.Border1}"
                             CornerRadius="3" Background="{DynamicResource Brush.Contents}"
-                            IsVisible="{Binding IsBusy}">
-                      <ScrollViewer MaxHeight="140" Padding="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            IsVisible="{Binding StatusLog.Count, Converter={x:Static c:IntConverters.IsGreaterThanZero}}">
+                      <ScrollViewer Padding="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <ItemsControl ItemsSource="{Binding StatusLog}">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="x:String">
@@ -1080,7 +1098,7 @@
                         </ItemsControl>
                       </ScrollViewer>
                     </Border>
-                  </StackPanel>
+                  </Grid>
                 </DataTemplate>
               </ContentControl.DataTemplates>
             </ContentControl>

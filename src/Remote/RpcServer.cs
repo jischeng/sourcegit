@@ -195,7 +195,11 @@ namespace SourceGit.Remote
         private async Task<JsonNode> ExecGitStreamAsync(JsonNode p)
         {
             var (spec, stdin) = BuildGitSpec(p);
-            var streamId = Interlocked.Increment(ref _nextStreamId).ToString();
+            // The client may supply its own stream id so it can register a handler before the
+            // server starts pushing data (avoids losing the first chunks to a race).
+            var streamId = TryGetString(p, "stream_id");
+            if (string.IsNullOrEmpty(streamId))
+                streamId = Interlocked.Increment(ref _nextStreamId).ToString();
 
             _ = Task.Run(() => StreamGitAsync(streamId, spec, stdin));
             return JsonSerializer.SerializeToNode(new { stream_id = streamId });
