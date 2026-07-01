@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 
 using Avalonia.Threading;
 
+using SourceGit.ViewModels;
+
 namespace SourceGit.Remote
 {
     /// <summary>
@@ -107,11 +109,89 @@ namespace SourceGit.Remote
             SetState(host, Models.RemoteHostState.Disconnected, string.Empty);
         }
 
-        /// <summary>Reset a host: force a fresh deploy and reconnect.</summary>
-        public Task<bool> ResetAsync(Models.RemoteHost host)
+        /// <summary>
+        /// Reset a host: force a fresh deploy and reconnect. Instead of closing repository tabs,
+        /// they are put into a loading state and re-opened on the new connection so the user
+        /// doesn't lose their tab layout.
+        /// </summary>
+        public async Task<bool> ResetAsync(Models.RemoteHost host)
         {
-            CloseTabsForHost(host?.Host);
-            return ConnectAsync(host, forceRedeploy: true);
+            if (host == null)
+                return false;
+
+            var hostKey = Key(host.Host);
+            var pages = new List<LauncherPage>();
+
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                var launcher = App.GetLauncher();
+                if (launcher == null)
+                    return;
+
+                foreach (var page in launcher.Pages)
+                {
+                    if (page.Node is { IsRemote: true, RemoteHost: { } rh } && Key(rh.Host) == hostKey)
+                        pages.Add(page);
+                }
+            });
+
+            // Put tabs into loading state instead of closing them.
+            Dispatcher.UIThread.Post(() =>
+            {
+                foreach (var page in pages)
+                {
+                    if (page.Data is Repository repo)
+                    {
+                        repo.Close();
+                        var hostDisplay = page.Node.RemoteHost?.Name ?? page.Node.RemoteHost?.Host ?? "";
+                        page.Data = new LoadingRemoteRepository
+                        {
+                            Host = hostDisplay,
+                            Path = page.Node.Id,
+                            Message = $"Reconnecting to {hostDisplay}...",
+                        };
+                    }
+                }
+            });
+
+            var connected = await ConnectAsync(host, forceRedeploy: true).ConfigureAwait(false);
+
+            if (connected)
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    var launcher = App.GetLauncher();
+                    if (launcher == null)
+                        return;
+
+                    foreach (var page in pages)
+                    {
+                        if (page.Data is LoadingRemoteRepository)
+                            launcher.OpenRepositoryInTab(page.Node, page);
+                    }
+                });
+            }
+            else
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    foreach (var page in pages)
+                    {
+                        if (page.Data is LoadingRemoteRepository)
+                        {
+                            page.Notifications.Add(new Models.Notification
+                            {
+                                Group = page.Node.Id,
+                                Message = $"Reconnect failed: {host.StatusMessage}",
+                                IsError = true,
+                            });
+                            page.Data = Welcome.Instance;
+                        }
+                    }
+                });
+            }
+
+            return connected;
         }
 
         /// <summary>
