@@ -72,9 +72,9 @@ namespace SourceGit.Commands
     public interface ICommandProcess : IDisposable
     {
         /// <summary>Text reader over stdout, for <c>ReadLineAsync</c> usage.</summary>
-        StreamReader Stdout { get; }
+        TextReader Stdout { get; }
 
-        /// <summary>Raw stdout stream (= <see cref="Stdout"/>'s BaseStream), for binary <c>CopyToAsync</c> usage.</summary>
+        /// <summary>Raw stdout stream, for binary <c>CopyToAsync</c> usage.</summary>
         Stream StdoutStream { get; }
 
         /// <summary>
@@ -84,7 +84,7 @@ namespace SourceGit.Commands
         StreamWriter Stdin { get; }
 
         /// <summary>Text reader over stderr.</summary>
-        StreamReader Stderr { get; }
+        TextReader Stderr { get; }
 
         /// <summary>Wait for the process to exit.</summary>
         Task WaitForExitAsync(CancellationToken ct);

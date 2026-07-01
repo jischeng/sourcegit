@@ -251,10 +251,10 @@ namespace SourceGit.Commands
                 _proc = proc;
             }
 
-            public StreamReader Stdout => _proc.StandardOutput;
+            public TextReader Stdout => _proc.StandardOutput;
             public Stream StdoutStream => _proc.StandardOutput.BaseStream;
             public StreamWriter Stdin => _proc.StandardInput;
-            public StreamReader Stderr => _proc.StandardError;
+            public TextReader Stderr => _proc.StandardError;
             public Task WaitForExitAsync(CancellationToken ct) => _proc.WaitForExitAsync(ct);
             public int ExitCode => _proc.ExitCode;
 

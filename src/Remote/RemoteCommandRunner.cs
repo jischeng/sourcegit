@@ -38,9 +38,7 @@ namespace SourceGit.Remote
                 throw new NotSupportedException("RemoteCommandRunner.Start does not support stdin (handled in a later phase)");
 
             var r = ExecGit(spec);
-            var stdout = Encoding.UTF8.GetBytes(r.Stdout ?? string.Empty);
-            var stderr = Encoding.UTF8.GetBytes(r.Stderr ?? string.Empty);
-            return new RemoteCommandProcess(stdout, stderr, r.ExitCode);
+            return new RemoteCommandProcess(r.Stdout ?? string.Empty, r.Stderr ?? string.Empty, r.ExitCode);
         }
 
         public async Task<int> RunForExitCodeAsync(Command.RunSpec spec, CancellationToken ct)
@@ -99,31 +97,42 @@ namespace SourceGit.Remote
             if (result == null)
                 return new ExecGitResult();
 
-            return JsonSerializer.Deserialize<ExecGitResult>(result.ToJsonString());
+            // Pull fields directly from the JsonNode instead of round-tripping through
+            // ToJsonString()+Deserialize, which would allocate an extra large string for big
+            // git log outputs and cause GC pressure / UI jank.
+            return new ExecGitResult
+            {
+                Stdout = result["stdout"]?.GetValue<string>() ?? string.Empty,
+                Stderr = result["stderr"]?.GetValue<string>() ?? string.Empty,
+                ExitCode = result["exit_code"]?.GetValue<int>() ?? -1,
+            };
         }
 
         private sealed class RemoteCommandProcess : ICommandProcess
         {
-            private readonly byte[] _stdout;
-            private readonly byte[] _stderr;
+            private readonly string _stdout;
+            private readonly string _stderr;
             private readonly int _exitCode;
-            private StreamReader _stdoutReader;
-            private StreamReader _stderrReader;
+            private StringReader _stdoutReader;
+            private StringReader _stderrReader;
 
-            public RemoteCommandProcess(byte[] stdout, byte[] stderr, int exitCode)
+            public RemoteCommandProcess(string stdout, string stderr, int exitCode)
             {
                 _stdout = stdout;
                 _stderr = stderr;
                 _exitCode = exitCode;
             }
 
-            // Stdout/Stderr are cached so a consumer that calls ReadLineAsync in a loop sees a
-            // single continuous reader instead of a fresh reader (at position 0) each access.
-            // StdoutStream returns an independent fresh stream for callers that copy bytes.
-            public StreamReader Stdout => _stdoutReader ??= new StreamReader(new MemoryStream(_stdout, writable: false), Encoding.UTF8);
-            public Stream StdoutStream => new MemoryStream(_stdout, writable: false);
+            // Line-based callers (QueryCommits/CompareRevisions/...) read through Stdout as a
+            // TextReader. Using StringReader avoids converting the whole stdout to a byte[]
+            // and back, which was the main source of GC pressure for large git log outputs.
+            public TextReader Stdout => _stdoutReader ??= new StringReader(_stdout);
+
+            // Binary/copy callers (Diff) use StdoutStream. This is rare and the output is
+            // bounded, so allocating a byte[] here is acceptable.
+            public Stream StdoutStream => new MemoryStream(Encoding.UTF8.GetBytes(_stdout), writable: false);
             public StreamWriter Stdin => throw new NotSupportedException("remote process has no stdin via Start");
-            public StreamReader Stderr => _stderrReader ??= new StreamReader(new MemoryStream(_stderr, writable: false), Encoding.UTF8);
+            public TextReader Stderr => _stderrReader ??= new StringReader(_stderr);
             public Task WaitForExitAsync(CancellationToken ct) => Task.CompletedTask;
             public int ExitCode => _exitCode;
 
