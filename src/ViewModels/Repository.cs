@@ -789,7 +789,32 @@ namespace SourceGit.ViewModels
 
         public IDisposable LockWatcher()
         {
-            return _watcher?.Lock();
+            if (_watcher != null)
+                return _watcher.Lock();
+
+            // For remote repos there is no local FileSystemWatcher. Return a context that
+            // triggers a full refresh on dispose, so any operation that wraps its work in
+            // `using var lock = repo.LockWatcher()` (tag/push/commit/merge/…) auto-refreshes
+            // the UI once the command finishes — matching the local behavior.
+            if (IsRemote)
+                return new RemoteRefreshContext(this);
+
+            return null;
+        }
+
+        /// <summary>
+        /// Returned by <see cref="LockWatcher"/> for remote repositories. Disposing it
+        /// (i.e. when the `using` block exits after a git command completes) posts a
+        /// <see cref="RefreshAll"/> to the UI thread.
+        /// </summary>
+        private sealed class RemoteRefreshContext : IDisposable
+        {
+            private readonly Repository _repo;
+            public RemoteRefreshContext(Repository repo) { _repo = repo; }
+            public void Dispose()
+            {
+                Dispatcher.UIThread.Post(() => _repo.RefreshAll());
+            }
         }
 
         public void RefreshAfterCreateBranch(Models.Branch created, bool checkout)
