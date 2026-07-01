@@ -26,6 +26,11 @@ namespace SourceGit.Remote
             if (host == null || host.IsBusy)
                 return;
 
+            // Testing a connected host would briefly clobber the green state and could leave it
+            // stuck gray; skip instead — the connection is already known to be alive.
+            if (host.IsConnected)
+                return;
+
             SetState(host, Models.RemoteHostState.Testing, "Testing...");
 
             var session = GetOrCreate(host);
@@ -51,6 +56,9 @@ namespace SourceGit.Remote
                 return true;
 
             SetState(host, Models.RemoteHostState.Connecting, forceRedeploy ? "Re-deploying..." : "Connecting...");
+
+            // Start a fresh log for this attempt.
+            Dispatcher.UIThread.Post(() => host.StatusLog.Clear());
 
             var session = GetOrCreate(host);
             try
@@ -160,7 +168,18 @@ namespace SourceGit.Remote
             {
                 host.State = state;
                 host.StatusMessage = message;
+                if (!string.IsNullOrEmpty(message))
+                    host.StatusLog.Add($"{DateTime.Now:HH:mm:ss}  {message}");
             });
+        }
+
+        /// <summary>Append a progress line to the host's scrolling log (used during deploy).</summary>
+        public void AppendLog(Models.RemoteHost host, string message)
+        {
+            if (host == null || string.IsNullOrEmpty(message))
+                return;
+
+            Dispatcher.UIThread.Post(() => host.StatusLog.Add($"{DateTime.Now:HH:mm:ss}  {message}"));
         }
 
         private static string Key(string host) => (host ?? string.Empty).Trim();

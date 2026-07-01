@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 
 using Avalonia.Media;
@@ -75,6 +76,10 @@ namespace SourceGit.Models
             get => _statusMessage;
             set => SetProperty(ref _statusMessage, value);
         }
+
+        /// <summary>Scrolling log of connect/test/reset steps, newest appended at bottom.</summary>
+        [JsonIgnore]
+        public ObservableCollection<string> StatusLog { get; } = new();
 
         [JsonIgnore]
         public bool IsConnected => _state == RemoteHostState.Connected;

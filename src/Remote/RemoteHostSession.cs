@@ -69,8 +69,9 @@ namespace SourceGit.Remote
             if (string.IsNullOrWhiteSpace(alias))
                 throw new Exception("Host is empty");
 
-            EnsureRemoteServer(alias, forceRedeploy);
+            EnsureRemoteServer(alias, forceRedeploy, msg => RemoteHostManager.Instance.AppendLog(Host, msg));
 
+            RemoteHostManager.Instance.AppendLog(Host, "Starting remote server...");
             var conn = new SshConnection(alias, RemoteServerCommand);
             try
             {
@@ -105,12 +106,13 @@ namespace SourceGit.Remote
         /// upload; uploads the bundled binary when missing, when <paramref name="forceRedeploy"/>
         /// is set, or when the deployed version differs from the client. Throws on failure.
         /// </summary>
-        private static void EnsureRemoteServer(string host, bool forceRedeploy)
+        private static void EnsureRemoteServer(string host, bool forceRedeploy, Action<string> onProgress)
         {
             var needUpload = forceRedeploy;
 
             if (!needUpload)
             {
+                onProgress?.Invoke("Probing remote server binary...");
                 var probe = SshExec.Run(host, $"test -x {RemoteServerBinary} && echo OK");
                 if (probe.stdout.Trim() != "OK")
                 {
@@ -124,24 +126,34 @@ namespace SourceGit.Remote
                     var expected = Native.OS.GetAppVersion();
                     var remote = SshExec.Run(host, $"timeout 5s {RemoteServerBinary} --remote-server-version");
                     if (remote.exitCode != 0 || !remote.stdout.Trim().Equals(expected, StringComparison.Ordinal))
+                    {
+                        onProgress?.Invoke("Remote server binary is outdated; re-uploading...");
                         needUpload = true;
+                    }
                 }
             }
 
             if (!needUpload)
+            {
+                onProgress?.Invoke("Remote server binary is up to date.");
                 return;
+            }
 
             var local = Native.OS.GetBundledRemoteServerPath();
             if (string.IsNullOrEmpty(local))
                 throw new Exception("Bundled remote server binary not found; please run from the installed app.");
 
+            onProgress?.Invoke("Creating remote server directory...");
             var mkdir = SshExec.Run(host, $"mkdir -p {RemoteServerDir}");
             if (mkdir.exitCode != 0)
                 throw new Exception($"Failed to create {RemoteServerDir} on '{host}' (exit {mkdir.exitCode}).");
 
+            var size = new System.IO.FileInfo(local).Length;
+            onProgress?.Invoke($"Uploading server binary ({size / 1024 / 1024} MB)...");
             if (ScpUpload.Upload(host, local, RemoteServerBinary) != 0)
                 throw new Exception($"Failed to upload server binary to '{host}'.");
 
+            onProgress?.Invoke("Setting executable permissions...");
             var chmod = SshExec.Run(host, $"chmod +x {RemoteServerBinary}");
             if (chmod.exitCode != 0)
                 throw new Exception($"Failed to chmod server binary on '{host}' (exit {chmod.exitCode}).");
