@@ -27,6 +27,7 @@ namespace SourceGit.Remote
                 return;
 
             var wasConnected = host.IsConnected;
+            Dispatcher.UIThread.Post(() => host.StatusLog.Clear());
             SetState(host, Models.RemoteHostState.Testing, "Testing...");
 
             var session = GetOrCreate(host);
@@ -60,10 +61,10 @@ namespace SourceGit.Remote
             if (host.IsConnected && !forceRedeploy)
                 return true;
 
-            SetState(host, Models.RemoteHostState.Connecting, forceRedeploy ? "Re-deploying..." : "Connecting...");
-
-            // Start a fresh log for this attempt.
+            // Start a fresh log for this attempt. Clear before SetState so the state line is
+            // the first entry, not wiped by a later clear.
             Dispatcher.UIThread.Post(() => host.StatusLog.Clear());
+            SetState(host, Models.RemoteHostState.Connecting, forceRedeploy ? "Re-deploying..." : "Connecting...");
 
             var session = GetOrCreate(host);
             try

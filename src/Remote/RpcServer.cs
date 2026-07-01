@@ -111,6 +111,9 @@ namespace SourceGit.Remote
                 case "exec_git":
                     return JsonSerializer.SerializeToNode(await ExecGitAsync(p).ConfigureAwait(false));
 
+                case "exec_git_stream":
+                    return await ExecGitStreamAsync(p).ConfigureAwait(false);
+
                 case "file_exists":
                     return JsonValue.Create(File.Exists(GetString(p, "path")));
 
@@ -163,6 +166,73 @@ namespace SourceGit.Remote
 
         private static async Task<ExecGitResult> ExecGitAsync(JsonNode p)
         {
+            var (spec, stdin) = BuildGitSpec(p);
+
+            using var proc = LocalCommandRunner.Instance.Start(spec);
+
+            var stdoutTask = proc.Stdout.ReadToEndAsync();
+            var stderrTask = proc.Stderr.ReadToEndAsync();
+
+            if (stdin != null)
+            {
+                await proc.Stdin.WriteAsync(stdin).ConfigureAwait(false);
+                proc.Stdin.Close();
+            }
+
+            var stdout = await stdoutTask.ConfigureAwait(false);
+            var stderr = await stderrTask.ConfigureAwait(false);
+            await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+
+            return new ExecGitResult { Stdout = stdout, Stderr = stderr, ExitCode = proc.ExitCode };
+        }
+
+        /// <summary>
+        /// Streaming variant of <c>exec_git</c>. Returns a stream id immediately, then pushes
+        /// <c>exec_git_stream_data</c> notifications (base64 chunks of stdout) followed by
+        /// <c>exec_git_stream_done</c> (exit code + stderr). This lets the client process large
+        /// git log/diff outputs incrementally instead of buffering one giant JSON string.
+        /// </summary>
+        private async Task<JsonNode> ExecGitStreamAsync(JsonNode p)
+        {
+            var (spec, stdin) = BuildGitSpec(p);
+            var streamId = Interlocked.Increment(ref _nextStreamId).ToString();
+
+            _ = Task.Run(() => StreamGitAsync(streamId, spec, stdin));
+            return JsonSerializer.SerializeToNode(new { stream_id = streamId });
+        }
+
+        private async Task StreamGitAsync(string streamId, Command.RunSpec spec, string stdin)
+        {
+            try
+            {
+                using var proc = LocalCommandRunner.Instance.Start(spec);
+
+                if (stdin != null)
+                {
+                    proc.Stdin.Write(stdin);
+                    proc.Stdin.Close();
+                }
+
+                var stderrTask = proc.Stderr.ReadToEndAsync();
+                var buf = new byte[64 * 1024];
+                int read;
+
+                while ((read = await proc.StdoutStream.ReadAsync(buf, 0, buf.Length).ConfigureAwait(false)) > 0)
+                    SendNotification("exec_git_stream_data", new { stream_id = streamId, data = Convert.ToBase64String(buf, 0, read) });
+
+                var stderr = await stderrTask.ConfigureAwait(false);
+                await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+
+                SendNotification("exec_git_stream_done", new { stream_id = streamId, exit_code = proc.ExitCode, stderr });
+            }
+            catch (Exception e)
+            {
+                SendNotification("exec_git_stream_done", new { stream_id = streamId, exit_code = -1, stderr = e.Message });
+            }
+        }
+
+        private static (Command.RunSpec spec, string stdin) BuildGitSpec(JsonNode p)
+        {
             var args = GetString(p, "args");
             var workingDir = GetString(p, "working_dir");
             var sshKey = TryGetString(p, "ssh_key");
@@ -186,22 +256,7 @@ namespace SourceGit.Remote
                 Headless = true,
             };
 
-            using var proc = LocalCommandRunner.Instance.Start(spec);
-
-            var stdoutTask = proc.Stdout.ReadToEndAsync();
-            var stderrTask = proc.Stderr.ReadToEndAsync();
-
-            if (stdin != null)
-            {
-                await proc.Stdin.WriteAsync(stdin).ConfigureAwait(false);
-                proc.Stdin.Close();
-            }
-
-            var stdout = await stdoutTask.ConfigureAwait(false);
-            var stderr = await stderrTask.ConfigureAwait(false);
-            await proc.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-
-            return new ExecGitResult { Stdout = stdout, Stderr = stderr, ExitCode = proc.ExitCode };
+            return (spec, stdin);
         }
 
         private static string HomeDir()
@@ -350,5 +405,6 @@ namespace SourceGit.Remote
 
         private readonly object _sendLock = new();
         private readonly Dictionary<string, FileSystemWatcher> _watchers = new();
+        private static long _nextStreamId = 0;
     }
 }

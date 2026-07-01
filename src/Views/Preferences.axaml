@@ -1063,14 +1063,13 @@
                     <TextBlock Margin="0,8,0,0"
                                Text="{Binding StatusMessage}"
                                Foreground="{Binding StatusBrush}"
-                               FontWeight="Bold"
                                TextTrimming="CharacterEllipsis"
                                IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 
                     <Border Margin="0,8,0,0"
                             BorderThickness="1" BorderBrush="{DynamicResource Brush.Border1}"
                             CornerRadius="3" Background="{DynamicResource Brush.Contents}"
-                            IsVisible="{Binding StatusLog.Count, Converter={x:Static c:IntConverters.IsGreaterThanZero}}">
+                            IsVisible="{Binding IsBusy}">
                       <ScrollViewer MaxHeight="140" Padding="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <ItemsControl ItemsSource="{Binding StatusLog}">
                           <ItemsControl.ItemTemplate>

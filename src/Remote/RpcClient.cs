@@ -30,6 +30,7 @@ namespace SourceGit.Remote
         private readonly StreamWriter _writer;
         private readonly object _writeLock = new();
         private readonly ConcurrentDictionary<long, TaskCompletionSource<JsonNode>> _pending = new();
+        private readonly ConcurrentDictionary<string, Action<string, JsonNode>> _streamHandlers = new();
         private readonly Thread _readThread;
         private long _nextId = 0;
         private volatile bool _stopped = false;
@@ -44,6 +45,19 @@ namespace SourceGit.Remote
 
         /// <summary>Server-pushed notification (method, params).</summary>
         public event Action<string, JsonNode> NotificationReceived;
+
+        /// <summary>Register a handler for a streaming exec_git stream id.</summary>
+        public void RegisterStreamHandler(string streamId, Action<string, JsonNode> handler)
+        {
+            if (!string.IsNullOrEmpty(streamId) && handler != null)
+                _streamHandlers[streamId] = handler;
+        }
+
+        public void UnregisterStreamHandler(string streamId)
+        {
+            if (!string.IsNullOrEmpty(streamId))
+                _streamHandlers.TryRemove(streamId, out _);
+        }
 
         /// <summary>Synchronous request/response. Blocks until the matching response arrives.</summary>
         public JsonNode Call(string method, object parameters) => CallAsync(method, parameters).GetAwaiter().GetResult();
@@ -119,8 +133,21 @@ namespace SourceGit.Remote
                     var method = msg["method"]?.GetValue<string>();
                     if (method != null)
                     {
-                        try { NotificationReceived?.Invoke(method, msg["params"]); }
-                        catch { /* notification handlers must not tear down the read loop */ }
+                        // Route streaming exec_git data/done notifications to the owning process.
+                        if (method == "exec_git_stream_data" || method == "exec_git_stream_done")
+                        {
+                            var streamId = msg["params"]?["stream_id"]?.GetValue<string>();
+                            if (streamId != null && _streamHandlers.TryGetValue(streamId, out var handler))
+                            {
+                                try { handler(method, msg["params"]); }
+                                catch { /* stream handlers must not tear down the read loop */ }
+                            }
+                        }
+                        else
+                        {
+                            try { NotificationReceived?.Invoke(method, msg["params"]); }
+                            catch { /* notification handlers must not tear down the read loop */ }
+                        }
                     }
                 }
             }

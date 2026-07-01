@@ -1,7 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Text;
-using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -37,8 +38,24 @@ namespace SourceGit.Remote
             if (spec.RedirectStandardInput)
                 throw new NotSupportedException("RemoteCommandRunner.Start does not support stdin (handled in a later phase)");
 
-            var r = ExecGit(spec);
-            return new RemoteCommandProcess(r.Stdout ?? string.Empty, r.Stderr ?? string.Empty, r.ExitCode);
+            // Use the streaming RPC so large outputs (git log) arrive in chunks instead of one
+            // giant JSON string; the client-side process exposes a blocking stream that the
+            // command parsers read line-by-line, exactly like a local git process.
+            var parameters = new
+            {
+                args = spec.Args,
+                working_dir = spec.WorkingDirectory,
+                ssh_key = spec.SSHKey,
+                editor = spec.Editor.ToString(),
+                stdin = spec.StdinContent,
+            };
+
+            var result = _client.Call("exec_git_stream", parameters);
+            var streamId = result?["stream_id"]?.GetValue<string>();
+            if (string.IsNullOrEmpty(streamId))
+                throw new Exception("remote server did not return a stream id");
+
+            return new RemoteStreamProcess(_client, streamId);
         }
 
         public async Task<int> RunForExitCodeAsync(Command.RunSpec spec, CancellationToken ct)
@@ -108,39 +125,115 @@ namespace SourceGit.Remote
             };
         }
 
-        private sealed class RemoteCommandProcess : ICommandProcess
+        private sealed class RemoteStreamProcess : ICommandProcess
         {
-            private readonly string _stdout;
-            private readonly string _stderr;
-            private readonly int _exitCode;
-            private StringReader _stdoutReader;
+            private readonly RpcClient _client;
+            private readonly string _streamId;
+            private readonly BlockingCollection<byte[]> _blocks = new();
+            private readonly BlockingStream _stream;
+            private readonly TaskCompletionSource _done = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            private StreamReader _stdoutReader;
             private StringReader _stderrReader;
+            private int _exitCode = -1;
+            private string _stderr = string.Empty;
 
-            public RemoteCommandProcess(string stdout, string stderr, int exitCode)
+            public RemoteStreamProcess(RpcClient client, string streamId)
             {
-                _stdout = stdout;
-                _stderr = stderr;
-                _exitCode = exitCode;
+                _client = client;
+                _streamId = streamId;
+                _stream = new BlockingStream(_blocks);
+
+                _client.RegisterStreamHandler(streamId, OnStreamNotification);
             }
 
-            // Line-based callers (QueryCommits/CompareRevisions/...) read through Stdout as a
-            // TextReader. Using StringReader avoids converting the whole stdout to a byte[]
-            // and back, which was the main source of GC pressure for large git log outputs.
-            public TextReader Stdout => _stdoutReader ??= new StringReader(_stdout);
+            private void OnStreamNotification(string method, JsonNode pars)
+            {
+                if (method == "exec_git_stream_data")
+                {
+                    var data = pars?["data"]?.GetValue<string>();
+                    if (!string.IsNullOrEmpty(data))
+                    {
+                        try { _blocks.Add(Convert.FromBase64String(data)); }
+                        catch { /* ignore bad chunk */ }
+                    }
+                }
+                else if (method == "exec_git_stream_done")
+                {
+                    _exitCode = pars?["exit_code"]?.GetValue<int>() ?? -1;
+                    _stderr = pars?["stderr"]?.GetValue<string>() ?? string.Empty;
+                    _blocks.CompleteAdding();
+                    _done.TrySetResult();
+                }
+            }
 
-            // Binary/copy callers (Diff) use StdoutStream. This is rare and the output is
-            // bounded, so allocating a byte[] here is acceptable.
-            public Stream StdoutStream => new MemoryStream(Encoding.UTF8.GetBytes(_stdout), writable: false);
+            public TextReader Stdout => _stdoutReader ??= new StreamReader(_stream, Encoding.UTF8, leaveOpen: true);
+            public Stream StdoutStream => _stream;
             public StreamWriter Stdin => throw new NotSupportedException("remote process has no stdin via Start");
             public TextReader Stderr => _stderrReader ??= new StringReader(_stderr);
-            public Task WaitForExitAsync(CancellationToken ct) => Task.CompletedTask;
+            public Task WaitForExitAsync(CancellationToken ct) => _done.Task;
             public int ExitCode => _exitCode;
 
             public void Dispose()
             {
+                _client.UnregisterStreamHandler(_streamId);
+                _blocks.CompleteAdding();
                 _stdoutReader?.Dispose();
                 _stderrReader?.Dispose();
+                _stream.Dispose();
             }
+        }
+
+        /// <summary>
+        /// A read-only stream backed by a <see cref="BlockingCollection{Byte}"/> of chunks.
+        /// <see cref="Read"/> blocks until at least one byte is available or the collection is
+        /// completed. This lets a <see cref="StreamReader"/> read lines incrementally from a
+        /// remote streaming RPC, matching local process stdout behavior.
+        /// </summary>
+        private sealed class BlockingStream : Stream
+        {
+            private readonly BlockingCollection<byte[]> _blocks;
+            private byte[] _current = Array.Empty<byte>();
+            private int _pos = 0;
+
+            public BlockingStream(BlockingCollection<byte[]> blocks)
+            {
+                _blocks = blocks;
+            }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                int written = 0;
+                while (written < count)
+                {
+                    if (_pos >= _current.Length)
+                    {
+                        if (!_blocks.TryTake(out _current, Timeout.Infinite))
+                        {
+                            // Collection completed and empty.
+                            break;
+                        }
+                        _pos = 0;
+                    }
+
+                    var n = Math.Min(count - written, _current.Length - _pos);
+                    Array.Copy(_current, _pos, buffer, offset + written, n);
+                    _pos += n;
+                    written += n;
+                }
+
+                return written;
+            }
+
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
         }
     }
 }
