@@ -1031,32 +1031,34 @@
                                 PlaceholderText="{DynamicResource Text.Preferences.RemoteHosts.FromConfig}"/>
                     </Grid>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0" Spacing="8">
-                      <!-- Reset on the far left so the destructive/long action is hardest to hit by accident -->
-                      <Button Classes="flat" Height="28" MinWidth="76"
+                    <Grid Margin="0,16,0,0" ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+                      <!-- Destructive/long actions on the far left to avoid misclicks -->
+                      <Button Grid.Column="0" Classes="flat" Height="28" MinWidth="76"
                               Click="OnResetRemoteHost"
                               IsVisible="{Binding IsConnected}"
                               IsEnabled="{Binding !IsBusy}"
                               Content="{DynamicResource Text.Preferences.RemoteHosts.Reset}"/>
 
-                      <Button Classes="flat" Height="28" MinWidth="76"
+                      <Button Grid.Column="1" Classes="flat" Height="28" MinWidth="76"
+                              Margin="8,0,0,0"
                               Click="OnDisconnectRemoteHost"
                               IsVisible="{Binding IsConnected}"
                               IsEnabled="{Binding !IsBusy}"
                               Content="{DynamicResource Text.Preferences.RemoteHosts.Disconnect}"/>
 
-                      <!-- Test is always available so the user can check liveness even when connected -->
-                      <Button Classes="flat" Height="28" MinWidth="76"
+                      <!-- Test is always available so the user can check liveness/latency even when connected -->
+                      <Button Grid.Column="3" Classes="flat" Height="28" MinWidth="76"
                               Click="OnTestRemoteHost"
                               IsEnabled="{Binding !IsBusy}"
                               Content="{DynamicResource Text.Preferences.RemoteHosts.Test}"/>
 
-                      <Button Classes="flat primary" Height="28" MinWidth="76"
+                      <Button Grid.Column="4" Classes="flat primary" Height="28" MinWidth="76"
+                              Margin="8,0,0,0"
                               Click="OnConnectRemoteHost"
                               IsVisible="{Binding !IsConnected}"
                               IsEnabled="{Binding !IsBusy}"
                               Content="{DynamicResource Text.Preferences.RemoteHosts.Connect}"/>
-                    </StackPanel>
+                    </Grid>
 
                     <TextBlock Margin="0,8,0,0"
                                Text="{Binding StatusMessage}"

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 
 namespace SourceGit.Remote
 {
@@ -48,9 +49,12 @@ namespace SourceGit.Remote
             if (string.IsNullOrWhiteSpace(alias))
                 return (false, "Host is empty");
 
+            var sw = Stopwatch.StartNew();
             var (stdout, exit) = SshExec.Run(alias, "echo SOURCEGIT_OK");
+            sw.Stop();
+
             if (exit == 0 && stdout.Trim() == "SOURCEGIT_OK")
-                return (true, "Reachable");
+                return (true, $"{sw.ElapsedMilliseconds} ms");
 
             return (false, string.IsNullOrWhiteSpace(stdout) ? $"ssh exited with code {exit}" : stdout.Trim());
         }
