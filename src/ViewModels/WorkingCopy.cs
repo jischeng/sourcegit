@@ -567,7 +567,7 @@ namespace SourceGit.ViewModels
         {
             var sure = await App.AskConfirmAsync(App.Text("WorkingCopy.ClearCommitHistories.Confirm"));
             if (sure)
-                _repo.Settings.CommitMessages.Clear();
+                _repo.UIStates.RecentCommitMessages.Clear();
         }
 
         public async Task CommitAsync(bool autoStage, bool autoPush)
@@ -620,7 +620,7 @@ namespace SourceGit.ViewModels
 
             using var lockWatcher = _repo.LockWatcher();
             IsCommitting = true;
-            _repo.Settings.PushCommitMessage(_commitMessage);
+            _repo.UIStates.AddRecentCommitMessage(_commitMessage);
 
             if (autoStage && _unstaged.Count > 0)
                 await StageChangesAsync(_unstaged, null);

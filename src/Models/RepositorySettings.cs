@@ -54,12 +54,6 @@ namespace SourceGit.Models
             set;
         } = [];
 
-        public AvaloniaList<string> CommitMessages
-        {
-            get;
-            set;
-        } = [];
-
         public AvaloniaList<CustomAction> CustomActions
         {
             get;
@@ -120,25 +114,6 @@ namespace SourceGit.Models
             {
                 // Ignore save errors
             }
-        }
-
-        public void PushCommitMessage(string message)
-        {
-            message = message.Trim().ReplaceLineEndings("\n");
-            var existIdx = CommitMessages.IndexOf(message);
-            if (existIdx == 0)
-                return;
-
-            if (existIdx > 0)
-            {
-                CommitMessages.Move(existIdx, 0);
-                return;
-            }
-
-            if (CommitMessages.Count > 9)
-                CommitMessages.RemoveRange(9, CommitMessages.Count - 9);
-
-            CommitMessages.Insert(0, message);
         }
 
         public CustomAction AddNewCustomAction()

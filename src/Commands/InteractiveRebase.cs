@@ -11,7 +11,7 @@ namespace SourceGit.Commands
             Editor = EditorType.RebaseEditor;
 
             var builder = new StringBuilder(512);
-            builder.Append("-c core.commentChar=± rebase -i --autosquash ");
+            builder.Append("-c core.commentChar=\"^\" -c core.commentString=\"±\" rebase -i --autosquash ");
             if (autoStash)
                 builder.Append("--autostash ");
             if (noVerify)

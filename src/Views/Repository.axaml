@@ -58,7 +58,7 @@
               <Style Selector="Path.icon">
                 <Setter Property="Width" Value="12"/>
                 <Setter Property="Height" Value="12"/>
-                <Setter Property="Margin" Value="8,0,6,0"/>
+                <Setter Property="Margin" Value="6,0"/>
                 <Setter Property="Fill" Value="{DynamicResource Brush.FG2}"/>
               </Style>
               <Style Selector="TextBlock.header">
@@ -70,13 +70,16 @@
                 <Setter Property="Margin" Value="0"/>
                 <Setter Property="Padding" Value="0"/>
                 <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="CornerRadius" Value="4"/>
+                <Setter Property="CornerRadius" Value="0"/>
               </Style>
-              <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+              <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
                 <Setter Property="Background" Value="Transparent"/>
               </Style>
-              <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource Brush.AccentHovered}"/>
+              <Style Selector="ListBoxItem:selected">
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.FG1}"/>
+              </Style>
+              <Style Selector="ListBoxItem:selected Rectangle.indicator">
+                <Setter Property="Fill" Value="{DynamicResource Brush.FG1}"/>
               </Style>
               <Style Selector="ListBoxItem:selected TextBlock.header">
                 <Setter Property="Foreground" Value="{DynamicResource Brush.FG1}"/>
@@ -93,10 +96,11 @@
             </ListBox.ItemsPanel>
 
             <ListBoxItem>
-              <Grid ColumnDefinitions="Auto,*,Auto">
-                <Path Grid.Column="0" Classes="icon" Data="{StaticResource Icons.Histories}"/>
-                <TextBlock Grid.Column="1" Classes="header" Text="{DynamicResource Text.Histories}"/>
-                <Button Grid.Column="2"
+              <Grid ColumnDefinitions="4,Auto,*,Auto">
+                <Rectangle Grid.Column="0" Classes="indicator" Width="4" Height="20" VerticalAlignment="Center"/>
+                <Path Grid.Column="1" Classes="icon" Data="{StaticResource Icons.Histories}"/>
+                <TextBlock Grid.Column="2" Classes="header" Text="{DynamicResource Text.Histories}"/>
+                <Button Grid.Column="3"
                         Classes="icon_button"
                         Width="26" Height="26"
                         Click="OnOpenAdvancedHistoriesOption"
@@ -107,10 +111,11 @@
             </ListBoxItem>
 
             <ListBoxItem IsVisible="{Binding !IsBare}">
-              <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-                <Path Grid.Column="0" Classes="icon" Data="{StaticResource Icons.Changes}"/>
-                <TextBlock Grid.Column="1" Classes="header" Text="{DynamicResource Text.WorkingCopy}"/>
-                <Border Grid.Column="2"
+              <Grid ColumnDefinitions="4,Auto,*,Auto,Auto,Auto">
+                <Rectangle Grid.Column="0" Classes="indicator" Width="4" Height="20" VerticalAlignment="Center"/>
+                <Path Grid.Column="1" Classes="icon" Data="{StaticResource Icons.Changes}"/>
+                <TextBlock Grid.Column="2" Classes="header" Text="{DynamicResource Text.WorkingCopy}"/>
+                <Border Grid.Column="3"
                         Height="18"
                         Margin="6,0" Padding="9,0"
                         CornerRadius="9"
@@ -122,13 +127,13 @@
                              FontFamily="{DynamicResource Fonts.Monospace}"
                              FontSize="10"/>
                 </Border>
-                <Path Grid.Column="3"
+                <Path Grid.Column="4"
                       Width="12" Height="12"
                       Margin="0,0,6,0"
                       Data="{StaticResource Icons.Info}"
                       Fill="DarkOrange"
                       IsVisible="{Binding InProgressContext, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                <Button Grid.Column="4"
+                <Button Grid.Column="5"
                         Classes="icon_button"
                         Width="26" Height="26"
                         Command="{Binding DiscardAllChanges}"
@@ -139,10 +144,11 @@
             </ListBoxItem>
 
             <ListBoxItem IsVisible="{Binding !IsBare}">
-              <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                <Path Grid.Column="0" Classes="icon" Data="{StaticResource Icons.Stashes}"/>
-                <TextBlock Grid.Column="1" Classes="header" Text="{DynamicResource Text.Stashes}"/>
-                <Border Grid.Column="2"
+              <Grid ColumnDefinitions="4,Auto,*,Auto,Auto">
+                <Rectangle Grid.Column="0" Classes="indicator" Width="4" Height="20" VerticalAlignment="Center"/>
+                <Path Grid.Column="1" Classes="icon" Data="{StaticResource Icons.Stashes}"/>
+                <TextBlock Grid.Column="2" Classes="header" Text="{DynamicResource Text.Stashes}"/>
+                <Border Grid.Column="3"
                         Height="18"
                         Margin="6,0" Padding="9,0"
                         CornerRadius="9"
@@ -154,7 +160,7 @@
                              FontFamily="{DynamicResource Fonts.Monospace}"
                              FontSize="10"/>
                 </Border>
-                <Button Grid.Column="3"
+                <Button Grid.Column="4"
                         Classes="icon_button"
                         Width="26" Height="26"
                         Command="{Binding ClearStashes}"

@@ -231,6 +231,12 @@ namespace SourceGit.Models
             set;
         } = [];
 
+        public List<string> RecentCommitMessages
+        {
+            get;
+            set;
+        } = [];
+
         public static RepositoryUIStates Load(string gitDir)
         {
             var fileInfo = new FileInfo(Path.Combine(gitDir, "sourcegit.uistates"));
@@ -475,6 +481,26 @@ namespace SourceGit.Models
                 builder.Append(t);
 
             builder.Append("--tags ");
+        }
+
+        public void AddRecentCommitMessage(string message)
+        {
+            message = message.Trim().ReplaceLineEndings("\n");
+            var existIdx = RecentCommitMessages.IndexOf(message);
+            if (existIdx == 0)
+                return;
+
+            if (existIdx > 0)
+            {
+                RecentCommitMessages.RemoveAt(existIdx);
+                RecentCommitMessages.Insert(0, message);
+                return;
+            }
+
+            if (RecentCommitMessages.Count > 9)
+                RecentCommitMessages.RemoveRange(9, RecentCommitMessages.Count - 9);
+
+            RecentCommitMessages.Insert(0, message);
         }
 
         private string _file = string.Empty;
