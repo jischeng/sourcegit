@@ -46,6 +46,9 @@ namespace SourceGit.Remote
         /// <summary>Server-pushed notification (method, params).</summary>
         public event Action<string, JsonNode> NotificationReceived;
 
+        /// <summary>Raised when the read loop exits (server died / SSH channel closed).</summary>
+        public event Action ConnectionLost;
+
         /// <summary>Register a handler for a streaming exec_git stream id.</summary>
         public void RegisterStreamHandler(string streamId, Action<string, JsonNode> handler)
         {
@@ -154,6 +157,8 @@ namespace SourceGit.Remote
 
             foreach (var kv in _pending)
                 kv.Value.TrySetException(new Exception("remote server closed the connection"));
+
+            try { ConnectionLost?.Invoke(); } catch { /* best effort */ }
         }
 
         public void Dispose()

@@ -81,6 +81,12 @@ namespace SourceGit.Remote
             {
                 var client = new RpcClient(conn.Input, conn.Output);
                 client.Call("ping", new { });
+                client.ConnectionLost += () =>
+                {
+                    // The SSH channel / server process died. Mark the host as failed so the
+                    // UI shows a red dot instead of pretending everything is fine.
+                    RemoteHostManager.Instance.MarkConnectionLost(Host);
+                };
                 _conn = conn;
                 Client = client;
             }

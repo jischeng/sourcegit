@@ -213,6 +213,24 @@ namespace SourceGit.Remote
         }
 
         /// <summary>
+        /// Called by <see cref="RemoteHostSession"/> when the RPC client detects the SSH channel
+        /// / server process has died. Updates the host state so the UI no longer shows green.
+        /// </summary>
+        public void MarkConnectionLost(Models.RemoteHost host)
+        {
+            if (host == null)
+                return;
+
+            lock (_sessions)
+            {
+                if (_sessions.TryGetValue(Key(host.Host), out var session))
+                    session.Disconnect();
+            }
+
+            SetState(host, Models.RemoteHostState.Failed, "Connection lost");
+        }
+
+        /// <summary>
         /// Return the connected session for a host, or <c>null</c> when the host is not
         /// currently connected. Used by the repository opener and the remote folder picker so
         /// they only ever work over an already-established connection.

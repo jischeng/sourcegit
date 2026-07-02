@@ -55,7 +55,16 @@ namespace SourceGit.Remote
             };
 
             // The handler is already registered before the call, so no data chunks are lost.
-            _client.Call("exec_git_stream", parameters);
+            try
+            {
+                _client.Call("exec_git_stream", parameters);
+            }
+            catch
+            {
+                // Connection broken — complete the process with an error so callers get an
+                // empty failed result instead of hanging or throwing.
+                proc.CompleteWithError("Remote connection lost");
+            }
             return proc;
         }
 
@@ -111,19 +120,27 @@ namespace SourceGit.Remote
                 stdin = spec.StdinContent,
             };
 
-            var result = _client.Call("exec_git", parameters);
-            if (result == null)
-                return new ExecGitResult();
-
-            // Pull fields directly from the JsonNode instead of round-tripping through
-            // ToJsonString()+Deserialize, which would allocate an extra large string for big
-            // git log outputs and cause GC pressure / UI jank.
-            return new ExecGitResult
+            try
             {
-                Stdout = result["stdout"]?.GetValue<string>() ?? string.Empty,
-                Stderr = result["stderr"]?.GetValue<string>() ?? string.Empty,
-                ExitCode = result["exit_code"]?.GetValue<int>() ?? -1,
-            };
+                var result = _client.Call("exec_git", parameters);
+                if (result == null)
+                    return new ExecGitResult();
+
+                return new ExecGitResult
+                {
+                    Stdout = result["stdout"]?.GetValue<string>() ?? string.Empty,
+                    Stderr = result["stderr"]?.GetValue<string>() ?? string.Empty,
+                    ExitCode = result["exit_code"]?.GetValue<int>() ?? -1,
+                };
+            }
+            catch
+            {
+                // Connection broken (pipe broken / server died). Return an empty failed result
+                // instead of throwing — callers like QueryCommits have their own try-catch that
+                // will surface a notification, and this prevents an unhandled exception from
+                // crashing the app.
+                return new ExecGitResult { ExitCode = -1, Stderr = "Remote connection lost" };
+            }
         }
 
         private sealed class RemoteStreamProcess : ICommandProcess
@@ -170,6 +187,15 @@ namespace SourceGit.Remote
             public TextReader Stdout => _stdoutReader ??= new StreamReader(_stream, Encoding.UTF8, leaveOpen: true);
             public Stream StdoutStream => _stream;
             public StreamWriter Stdin => throw new NotSupportedException("remote process has no stdin via Start");
+
+            /// <summary>Force-complete the process with an error (used when the call itself throws).</summary>
+            public void CompleteWithError(string stderr)
+            {
+                _stderr = stderr;
+                _exitCode = -1;
+                _blocks.CompleteAdding();
+                _done.TrySetResult();
+            }
             public TextReader Stderr => _stderrReader ??= new StringReader(_stderr);
             public Task WaitForExitAsync(CancellationToken ct) => _done.Task;
             public int ExitCode => _exitCode;
