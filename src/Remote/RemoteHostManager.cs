@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Avalonia.Threading;
@@ -63,29 +65,45 @@ namespace SourceGit.Remote
             if (host.IsConnected && !forceRedeploy)
                 return true;
 
-            // Start a fresh log for this attempt. Clear before SetState so the state line is
-            // the first entry, not wiped by a later clear.
-            Dispatcher.UIThread.Post(() => { host.StatusLog.Clear(); host.StatusLogText = string.Empty; });
-            SetState(host, Models.RemoteHostState.Connecting, forceRedeploy ? "Re-deploying..." : "Connecting...");
-
-            var session = GetOrCreate(host);
+            // Serialize connect attempts per host so that multiple tabs restored on startup
+            // don't race to open the same SSH session / deploy the server concurrently.
+            var key = Key(host.Host);
+            var sem = _connectLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+            await sem.WaitAsync().ConfigureAwait(false);
             try
             {
-                await Task.Run(() =>
-                {
-                    if (forceRedeploy)
-                        session.Disconnect();
-                    session.Connect(forceRedeploy);
-                }).ConfigureAwait(false);
+                // Re-check after acquiring the lock — another caller may have connected already.
+                if (host.IsConnected && !forceRedeploy)
+                    return true;
 
-                SetState(host, Models.RemoteHostState.Connected, "Connected");
-                return true;
+                // Start a fresh log for this attempt. Clear before SetState so the state line is
+                // the first entry, not wiped by a later clear.
+                Dispatcher.UIThread.Post(() => { host.StatusLog.Clear(); host.StatusLogText = string.Empty; });
+                SetState(host, Models.RemoteHostState.Connecting, forceRedeploy ? "Re-deploying..." : "Connecting...");
+
+                var session = GetOrCreate(host);
+                try
+                {
+                    await Task.Run(() =>
+                    {
+                        if (forceRedeploy)
+                            session.Disconnect();
+                        session.Connect(forceRedeploy);
+                    }).ConfigureAwait(false);
+
+                    SetState(host, Models.RemoteHostState.Connected, "Connected");
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    session.Disconnect();
+                    SetState(host, Models.RemoteHostState.Failed, e.Message);
+                    return false;
+                }
             }
-            catch (Exception e)
+            finally
             {
-                session.Disconnect();
-                SetState(host, Models.RemoteHostState.Failed, e.Message);
-                return false;
+                sem.Release();
             }
         }
 
@@ -299,5 +317,6 @@ namespace SourceGit.Remote
         private static string Key(string host) => (host ?? string.Empty).Trim();
 
         private readonly Dictionary<string, RemoteHostSession> _sessions = new();
+        private readonly ConcurrentDictionary<string, SemaphoreSlim> _connectLocks = new();
     }
 }

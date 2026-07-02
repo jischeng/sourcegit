@@ -293,12 +293,21 @@ namespace SourceGit.ViewModels
         {
             foreach (var one in Pages)
             {
-                // Skip the page being re-opened (e.g. Reset reuses the same page); otherwise
-                // the duplicate check would short-circuit and leave it stuck in loading state.
+                // Skip the page being re-opened (e.g. Reset reuses the same page).
                 if (one.Node.Id == node.Id && !ReferenceEquals(one, page))
                 {
-                    ActivePage = one;
-                    return;
+                    // If the existing page is a live repository, just activate it.
+                    // If it's in a broken/loading state (Welcome/LoadingRemoteRepository after
+                    // a failed auto-connect), fall through and reuse that page for re-opening
+                    // so the user can retry from the sidebar without a dead tab.
+                    if (one.Data is Repository)
+                    {
+                        ActivePage = one;
+                        return;
+                    }
+
+                    page = one;
+                    break;
                 }
             }
 
