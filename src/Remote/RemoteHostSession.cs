@@ -149,9 +149,11 @@ namespace SourceGit.Remote
                 return;
             }
 
-            var local = Native.OS.GetBundledRemoteServerPath();
+            // Resolve the local server binary: try cached download from GitHub Releases first,
+            // fall back to the bundled binary. This runs on a background thread so blocking is fine.
+            var local = Native.OS.EnsureLocalServerBinaryAsync(onProgress).GetAwaiter().GetResult();
             if (string.IsNullOrEmpty(local))
-                throw new Exception("Bundled remote server binary not found; please run from the installed app.");
+                throw new Exception("Remote server binary not available (download failed and no bundled binary).");
 
             onProgress?.Invoke("Creating remote server directory...");
             var mkdir = SshExec.Run(host, $"mkdir -p {RemoteServerDir}");

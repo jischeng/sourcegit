@@ -9,13 +9,13 @@
     <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
     <InvariantGlobalization>false</InvariantGlobalization>
 
-    <Product>SourceGit</Product>
-    <Description>OpenSource GIT client</Description>
-    <Company>sourcegit-scm</Company>
-    <Copyright>Copyright © $([System.DateTime]::Now.Year) sourcegit-scm.</Copyright>
+    <Product>SourceGit Remote</Product>
+    <Description>Fork of sourcegit-scm/sourcegit with SSH remote repository support (VSCode/JetBrains-style). Synced from upstream every 1-2 months. If the fork falls too far behind, please open an issue.</Description>
+    <Company>jischeng</Company>
+    <Copyright>Copyright © $([System.DateTime]::Now.Year) jischeng. Based on sourcegit-scm/sourcegit.</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/sourcegit-scm/sourcegit.git</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/sourcegit-scm/sourcegit.git</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/jischeng/sourcegit.git</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/jischeng/sourcegit.git</RepositoryUrl>
     <RepositoryType>Public</RepositoryType>
   </PropertyGroup>
 

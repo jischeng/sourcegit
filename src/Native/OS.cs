@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -204,6 +205,96 @@ namespace SourceGit.Native
 
             var candidate = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Resources", "remote-server", "linux-x64", "sourcegit"));
             return File.Exists(candidate) ? candidate : null;
+        }
+
+        /// <summary>Local cache dir for the downloaded remote server binary.</summary>
+        private static string RemoteServerCacheDir => Path.Combine(DataDir, "cache");
+
+        /// <summary>Cached remote server binary path.</summary>
+        public static string GetCachedRemoteServerPath() => Path.Combine(RemoteServerCacheDir, "sourcegit-remote-server-linux-x64");
+
+        /// <summary>Version file written alongside the cached binary.</summary>
+        private static string GetCachedRemoteServerVersionPath() => Path.Combine(RemoteServerCacheDir, "sourcegit-remote-server-linux-x64.version");
+
+        /// <summary>
+        /// Returns the cached remote server version string, or null if not cached.
+        /// </summary>
+        public static string GetCachedRemoteServerVersion()
+        {
+            var p = GetCachedRemoteServerVersionPath();
+            return File.Exists(p) ? File.ReadAllText(p).Trim() : null;
+        }
+
+        /// <summary>
+        /// Resolve the local server binary to use: cached download if version matches,
+        /// otherwise try to download from GitHub Releases, falling back to the bundled binary.
+        /// </summary>
+        public static async Task<string> EnsureLocalServerBinaryAsync(Action<string> onProgress)
+        {
+            var expected = GetAppVersion();
+            var cached = GetCachedRemoteServerPath();
+
+            // Cache hit: version matches.
+            if (File.Exists(cached) && GetCachedRemoteServerVersion() == expected)
+                return cached;
+
+            // Try downloading from GitHub Releases.
+            try
+            {
+                Directory.CreateDirectory(RemoteServerCacheDir);
+                onProgress?.Invoke($"Downloading server binary from GitHub Releases ({expected})...");
+                await DownloadServerBinaryAsync(cached).ConfigureAwait(false);
+                await File.WriteAllTextAsync(GetCachedRemoteServerVersionPath(), expected).ConfigureAwait(false);
+                onProgress?.Invoke("Server binary downloaded and cached.");
+                return cached;
+            }
+            catch (Exception e)
+            {
+                onProgress?.Invoke($"Download failed ({e.Message}); falling back to bundled binary.");
+            }
+
+            // Fall back to the binary bundled in the app.
+            var bundled = GetBundledRemoteServerPath();
+            if (bundled != null)
+                return bundled;
+
+            throw new Exception("Remote server binary is not available: download failed and no bundled binary found.");
+        }
+
+        private static async Task DownloadServerBinaryAsync(string targetPath)
+        {
+            using var http = new System.Net.Http.HttpClient();
+            http.Timeout = TimeSpan.FromMinutes(10);
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("SourceGit-Remote/1.0");
+
+            // Fetch the latest release from the fork's GitHub repo.
+            var releaseJson = await http.GetStringAsync("https://api.github.com/repos/jischeng/sourcegit/releases/latest").ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(releaseJson);
+            var assets = doc.RootElement.GetProperty("assets");
+
+            string downloadUrl = null;
+            foreach (var asset in assets.EnumerateArray())
+            {
+                if (asset.GetProperty("name").GetString() == "sourcegit-remote-server-linux-x64")
+                {
+                    downloadUrl = asset.GetProperty("browser_download_url").GetString();
+                    break;
+                }
+            }
+
+            if (string.IsNullOrEmpty(downloadUrl))
+                throw new Exception("sourcegit-remote-server-linux-x64 asset not found in latest GitHub release.");
+
+            var tmp = targetPath + ".download";
+            using (var resp = await http.GetAsync(downloadUrl, System.Net.Http.HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false))
+            {
+                resp.EnsureSuccessStatusCode();
+                using var fs = File.Create(tmp);
+                await resp.Content.CopyToAsync(fs).ConfigureAwait(false);
+            }
+
+            File.Move(tmp, targetPath, true);
+            File.SetLastWriteTime(targetPath, DateTime.Now);
         }
 
         /// <summary>
