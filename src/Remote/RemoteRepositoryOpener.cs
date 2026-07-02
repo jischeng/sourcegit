@@ -75,7 +75,7 @@ namespace SourceGit.Remote
                     RemoteHost = host,
                 };
                 repo.RemoteWatcher = new RemoteWatcher(repo, client);
-                client.Call("watch_start", new { path = remotePath });
+                client.Call("watch_start", new { path = remotePath, git_dir = gitDir });
                 return repo;
             }
             catch

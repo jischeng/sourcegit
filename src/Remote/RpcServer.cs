@@ -152,7 +152,7 @@ namespace SourceGit.Remote
                     return JsonSerializer.SerializeToNode(ListDir(TryGetString(p, "path")));
 
                 case "watch_start":
-                    StartWatch(GetString(p, "path"));
+                    StartWatch(GetString(p, "path"), TryGetString(p, "git_dir"));
                     return JsonSerializer.SerializeToNode(new { });
 
                 case "watch_stop":
@@ -330,7 +330,7 @@ namespace SourceGit.Remote
             }
         }
 
-        private void StartWatch(string path)
+        private void StartWatch(string path, string gitDir = null)
         {
             lock (_watchers)
             {
@@ -358,6 +358,39 @@ namespace SourceGit.Remote
                 fsw.Renamed += (_, e) => OnWatchEvent(path, e.Name);
 
                 _watchers[path] = fsw;
+
+                // Also watch the .git directory (resolved gitDir) so that ref/worktree/index
+                // changes made from another terminal or tool are detected. For worktrees the
+                // .git dir lives outside the working tree, so the working-tree watcher alone
+                // would miss them.
+                if (!string.IsNullOrEmpty(gitDir))
+                {
+                    var resolved = ResolvePath(gitDir);
+                    if (resolved != path && !_watchers.ContainsKey(resolved))
+                    {
+                        FileSystemWatcher gitFsw;
+                        try
+                        {
+                            gitFsw = new FileSystemWatcher(resolved)
+                            {
+                                IncludeSubdirectories = true,
+                                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
+                                EnableRaisingEvents = true,
+                            };
+                        }
+                        catch
+                        {
+                            return;
+                        }
+
+                        gitFsw.Changed += (_, e) => OnWatchEvent(path, e.Name);
+                        gitFsw.Created += (_, e) => OnWatchEvent(path, e.Name);
+                        gitFsw.Deleted += (_, e) => OnWatchEvent(path, e.Name);
+                        gitFsw.Renamed += (_, e) => OnWatchEvent(path, e.Name);
+
+                        _watchers[resolved] = gitFsw;
+                    }
+                }
             }
         }
 
