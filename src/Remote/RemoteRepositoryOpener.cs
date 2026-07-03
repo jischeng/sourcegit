@@ -69,13 +69,26 @@ namespace SourceGit.Remote
                 else if (!gitDir.StartsWith('/'))
                     gitDir = remotePath.TrimEnd('/') + "/" + gitDir;
 
+                // For worktrees, ref/worktree changes happen in the common .git dir, not the
+                // worktree-specific git dir. Resolve it so the server can watch the right place.
+                var commonDirRS = runner.ReadToEnd(new Command.RunSpec
+                {
+                    Args = "rev-parse --git-common-dir",
+                    WorkingDirectory = remotePath,
+                });
+                var commonDir = commonDirRS.IsSuccess ? commonDirRS.StdOut.Trim() : gitDir;
+                if (string.IsNullOrEmpty(commonDir) || commonDir == ".")
+                    commonDir = gitDir;
+                else if (!commonDir.StartsWith('/'))
+                    commonDir = remotePath.TrimEnd('/') + "/" + commonDir;
+
                 var repo = new Repository(isBare, remotePath, gitDir, isRemote: true)
                 {
                     FileSystem = new RemoteFileSystem(client),
                     RemoteHost = host,
                 };
                 repo.RemoteWatcher = new RemoteWatcher(repo, client);
-                client.Call("watch_start", new { path = remotePath, git_dir = gitDir });
+                client.Call("watch_start", new { path = remotePath, git_dir = commonDir });
                 return repo;
             }
             catch
