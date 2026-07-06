@@ -264,11 +264,14 @@ namespace SourceGit.Native
         private static async Task DownloadServerBinaryAsync(string targetPath)
         {
             using var http = new System.Net.Http.HttpClient();
-            http.Timeout = TimeSpan.FromMinutes(10);
             http.DefaultRequestHeaders.UserAgent.ParseAdd("SourceGit-Remote/1.0");
 
-            // Fetch the latest release from the fork's GitHub repo.
-            var releaseJson = await http.GetStringAsync("https://api.github.com/repos/jischeng/sourcegit/releases/latest").ConfigureAwait(false);
+            // Short timeout for the API call — if GitHub is unreachable or no release exists,
+            // fail fast so the caller falls back to the bundled binary without hanging.
+            using var apiCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var releaseJson = await http.GetStringAsync(
+                "https://api.github.com/repos/jischeng/sourcegit/releases/latest",
+                apiCts.Token).ConfigureAwait(false);
             using var doc = JsonDocument.Parse(releaseJson);
             var assets = doc.RootElement.GetProperty("assets");
 
