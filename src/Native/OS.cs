@@ -263,7 +263,10 @@ namespace SourceGit.Native
 
         private static async Task DownloadServerBinaryAsync(string targetPath)
         {
-            using var http = new System.Net.Http.HttpClient();
+            // Bypass system proxy (which may be a local SOCKS/HTTP proxy that doesn't forward
+            // GitHub traffic) to avoid hanging on the API call.
+            using var handler = new System.Net.Http.SocketsHttpHandler { UseProxy = false };
+            using var http = new System.Net.Http.HttpClient(handler);
             http.DefaultRequestHeaders.UserAgent.ParseAdd("SourceGit-Remote/1.0");
 
             // Short timeout for the API call — if GitHub is unreachable or no release exists,
