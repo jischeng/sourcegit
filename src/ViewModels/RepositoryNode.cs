@@ -45,11 +45,13 @@ namespace SourceGit.ViewModels
             set => SetProperty(ref _isRepository, value);
         }
 
+        [System.Text.Json.Serialization.JsonInclude]
         public bool IsRemote
         {
             get; set;
         }
 
+        [System.Text.Json.Serialization.JsonInclude]
         public Models.RemoteHost RemoteHost
         {
             get; set;
