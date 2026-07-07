@@ -108,6 +108,12 @@
     </StackPanel>
 
     <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,4,0">
+      <Border IsVisible="{Binding IsRemote}"
+              Background="{DynamicResource Brush.Accent}"
+              CornerRadius="3" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center">
+        <TextBlock Text="SSH" FontSize="10" FontWeight="Bold" Foreground="White"/>
+      </Border>
+
       <Path Width="13" Height="13" Fill="{DynamicResource Brush.FG1}" Data="{StaticResource Icons.Branch}"/>
 
       <ContentControl Margin="6,0,0,0">
