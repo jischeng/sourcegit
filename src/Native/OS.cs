@@ -232,13 +232,20 @@ namespace SourceGit.Native
         public static async Task<string> EnsureLocalServerBinaryAsync(Action<string> onProgress)
         {
             var expected = GetAppVersion();
-            var cached = GetCachedRemoteServerPath();
 
-            // Cache hit: version matches.
+            // Prefer the bundled binary — it's always available in the installed app and
+            // avoids a network round-trip. The cache/download path is for future builds
+            // that ship without the bundled server.
+            var bundled = GetBundledRemoteServerPath();
+            if (bundled != null)
+                return bundled;
+
+            // No bundled binary — try the local cache.
+            var cached = GetCachedRemoteServerPath();
             if (File.Exists(cached) && GetCachedRemoteServerVersion() == expected)
                 return cached;
 
-            // Try downloading from GitHub Releases.
+            // Cache miss — download from GitHub Releases.
             try
             {
                 Directory.CreateDirectory(RemoteServerCacheDir);
@@ -250,15 +257,10 @@ namespace SourceGit.Native
             }
             catch (Exception e)
             {
-                onProgress?.Invoke($"Download failed ({e.Message}); falling back to bundled binary.");
+                onProgress?.Invoke($"Download failed ({e.Message}).");
             }
 
-            // Fall back to the binary bundled in the app.
-            var bundled = GetBundledRemoteServerPath();
-            if (bundled != null)
-                return bundled;
-
-            throw new Exception("Remote server binary is not available: download failed and no bundled binary found.");
+            throw new Exception("Remote server binary is not available: no bundled binary and download failed.");
         }
 
         private static async Task DownloadServerBinaryAsync(string targetPath)
