@@ -209,7 +209,7 @@ namespace SourceGit.Views
                     menu.Items.Add(new MenuItem() { Header = "-" });
                     menu.Items.Add(delete);
                 }
-                else if (Directory.Exists(node.Id))
+                else if (node.IsRemote || Directory.Exists(node.Id))
                 {
                     var open = new MenuItem();
                     open.Header = App.Text("Welcome.OpenOrInit");
