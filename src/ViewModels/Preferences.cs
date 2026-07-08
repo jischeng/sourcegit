@@ -667,8 +667,12 @@ namespace SourceGit.ViewModels
 
             try
             {
-                using var stream = File.OpenRead(path);
-                return JsonSerializer.Deserialize(stream, JsonCodeGen.Default.Preferences);
+                var json = File.ReadAllText(path);
+                // Use reflection-based deserialization (not the source-generated context) so that
+                // all properties — including IsRemote/RemoteHost on RepositoryNode, which the
+                // source generator may not pick up — are correctly deserialized.
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                return JsonSerializer.Deserialize<Preferences>(json, options);
             }
             catch
             {
