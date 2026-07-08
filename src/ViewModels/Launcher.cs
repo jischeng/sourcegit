@@ -311,8 +311,12 @@ namespace SourceGit.ViewModels
                 }
             }
 
-            if (node.IsRemote)
+            // Check both IsRemote and RemoteHost (RemoteHost may survive even if IsRemote
+            // didn't deserialize correctly from the source-generated JSON context).
+            var isRemote = node.IsRemote || (node.RemoteHost != null && !string.IsNullOrEmpty(node.RemoteHost.Host));
+            if (isRemote)
             {
+                node.IsRemote = true;
                 OpenRemoteRepositoryInTab(node, page);
                 return;
             }
